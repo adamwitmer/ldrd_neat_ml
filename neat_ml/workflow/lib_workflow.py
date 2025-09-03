@@ -6,8 +6,9 @@ from itertools import chain
 
 from neat_ml.opencv.preprocessing import process_directory as cv_preprocess
 from neat_ml.opencv.detection import run_opencv
+from neat_ml.bubblesam.bubblesam import run_bubblesam
 
-__all__ = ["get_path_structure", "stage_opencv", "stage_detect"]
+__all__ = ["get_path_structure", "stage_opencv", "stage_bubblesam", "stage_detect"]
 
 log = logging.getLogger(__name__)
 
@@ -37,8 +38,11 @@ def get_path_structure(
     time_label = dataset_config.get("time_label", "")
     work_root = Path(roots["work"])
 
-    base_proc = work_root / ds_id / method / class_label / time_label
-    paths["proc_dir"] = base_proc / f"{time_label}_Processed_{method}"
+    base_proc: Path = work_root / ds_id / method / class_label / time_label
+
+    if method == 'OpenCV':
+        paths["proc_dir"] = base_proc / f"{time_label}_Processed_{method}"
+
     paths["det_dir"] = base_proc / f"{time_label}_Processed_{method}_With_Blob_Data"
 
     return paths
@@ -101,12 +105,55 @@ def stage_opencv(
     return df_out
 
 
+def stage_bubblesam(dataset_config: dict[str, Any], paths: dict[str, Path]) -> None:
+    """
+    Run BubbleSAM detection when method='BubbleSAM'.
+
+    Parameters
+    ----------
+    dataset_config : dict[str, Any]
+        Dataset config. Expects method 'BubbleSAM'.
+        Uses detection.img_dir (falls back to dataset.img_dir).
+    paths : dict[str, Path]
+        Must include proc_dir and det_dir.
+
+    Returns
+    -------
+    None
+        Writes preprocessed images and *_masks_filtered.pkl.
+    """
+    if "det_dir" not in paths:
+        log.warning("Missing detection paths (not selected or misconfigured). Skipping.")
+        return
+
+    det_cfg = dict(dataset_config.get("detection", {}))
+    img_dir_str: Optional[str] = det_cfg.get("img_dir", dataset_config.get("img_dir"))
+    if not img_dir_str:
+        log.warning("No detection.img_dir set for dataset '%s'. Skipping.", dataset_config.get("id"))
+        return
+
+    ds_id: str = str(dataset_config.get("id", "unknown"))
+    det_dir: Path = paths["det_dir"]
+    img_dir: Path = Path(img_dir_str)
+
+    if list(det_dir.glob("*_masks_filtered.pkl")):
+        log.info("BubbleSAM outputs exist for %s. Skipping.", ds_id)
+        return
+
+    det_dir.mkdir(parents=True, exist_ok=True)
+    log.info("Detecting (BubbleSAM) for %s -> %s", ds_id, det_dir)
+    # collect paths for preprocessed tiff image files, store in DataFrame
+    img_paths = chain(img_dir.glob("*.tiff"), img_dir.glob("*.tif"))
+    df_imgs = pd.DataFrame({"image_filepath": img_paths})
+    run_bubblesam(df_imgs, det_dir)
+
+
 def stage_detect(
     dataset_config: dict[str, Any],
     paths: dict[str, Path]
 ) -> Optional[pd.DataFrame]:
     """
-    Route detection to OpenCV based on ``dataset_config`` method
+    Route detection to OpenCV or BubbleSAM based on dataset.method.
 
     Parameters
     ----------
@@ -125,6 +172,8 @@ def stage_detect(
     ds_id = dataset_config.get("id")
     if method == "opencv":
         df_out = stage_opencv(dataset_config, paths)
-        return df_out 
+    elif method == "bubblesam":
+        stage_bubblesam(dataset_config, paths)
     else:
         raise ValueError(f"Unknown detection method '{method}' for dataset '{ds_id}'.")
+    return df_out 
