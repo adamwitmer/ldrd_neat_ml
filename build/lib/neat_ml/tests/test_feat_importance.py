@@ -9,25 +9,20 @@ from sklearn.ensemble import RandomForestClassifier
 import shap
 
 
-@pytest.mark.parametrize(
-    "n_features, important_index",
-    [
-        (3, 0),
-        (5, 2),
-    ],
-)
+@pytest.mark.parametrize("n_features, important_index", [
+    (3, 0),
+    (5, 2),
+    ])
 def test_individual_shap_absolute_plots(tmp_path, n_features, important_index):
     plot_filename = "synthetic_SHAP_mean_absolute.png"
     expected_plot_file = tmp_path / plot_filename
-    X, y = make_classification(
-        n_samples=500,
-        n_features=n_features,
-        n_clusters_per_class=1,
-        n_informative=1,
-        n_redundant=0,
-        random_state=0,
-        shuffle=False,
-    )
+    X, y = make_classification(n_samples=500,
+                               n_features=n_features,
+                               n_clusters_per_class=1,
+                               n_informative=1,
+                               n_redundant=0,
+                               random_state=0,
+                               shuffle=False)
     X_tmp = X.copy()
     # carefully tune the location of the important
     # feature for testing purposes
@@ -43,12 +38,10 @@ def test_individual_shap_absolute_plots(tmp_path, n_features, important_index):
 
     cwd = os.getcwd()
     os.chdir(tmp_path)
-    actual_fig = lib.plot_ma_shap_vals_per_model(
-        shap_values=positive_class_shap_values,
-        feature_names=[str(x) for x in range(n_features)],
-        fig_title="synthetic SHAP test",
-        fig_name=plot_filename,
-    )
+    actual_fig = lib.plot_ma_shap_vals_per_model(shap_values=positive_class_shap_values,
+                                                 feature_names=[str(x) for x in range(n_features)],
+                                                 fig_title="synthetic SHAP test",
+                                                 fig_name=plot_filename)
     os.chdir(cwd)
     # first check that plot was produced
     assert expected_plot_file.is_file()

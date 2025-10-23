@@ -6,7 +6,6 @@ from typing import Optional, Sequence, Tuple
 import numpy as np
 import numpy.typing as npt
 import matplotlib
-
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata
@@ -29,36 +28,33 @@ memory = joblib.Memory("joblib_cache", verbose=0)
 # for machine learning-based prediction of polymer
 # properties by Mihee, Cesar, and Tyler during a discussion
 # on Nov. 3/2023
-features_of_interest = [
-    "volume_fraction",
-    # temperature at which light transmission of
-    # polymer mixture changes (within biological range):
-    "temp_light_transmission",
-    # polydispersity index (dispersity) -- different
-    # polymer lengths that result from imperfections in
-    # human synthesis/manufacturing processes:
-    "PDI",
-    # weight-average molar mass:
-    "M_w",
-    "backbone_or_torsion_angles",
-    "radius_of_gyration",
-    # these maps might be intra or even inter-molecular:
-    "contact_or_adjacency_maps",
-    # H-bond contacts in first solvation shell?
-    "h_bond_contacts",
-    # Mihee can measure interfacial tension
-    "interfacial_tension",
-    # Viscoscity may matter for cytometry, but not clear
-    # if it would matter for polymer phase separatation/
-    # microparticle formation:
-    "viscosity",
-]
-
+features_of_interest = ["volume_fraction",
+                        # temperature at which light transmission of
+                        # polymer mixture changes (within biological range):
+                        "temp_light_transmission", 
+                        # polydispersity index (dispersity) -- different
+                        # polymer lengths that result from imperfections in
+                        # human synthesis/manufacturing processes:
+                        "PDI",
+                        # weight-average molar mass:
+                        "M_w",
+                        "backbone_or_torsion_angles",
+                        "radius_of_gyration",
+                        # these maps might be intra or even inter-molecular:
+                        "contact_or_adjacency_maps",
+                        # H-bond contacts in first solvation shell?
+                        "h_bond_contacts",
+                        # Mihee can measure interfacial tension
+                        "interfacial_tension",
+                        # Viscoscity may matter for cytometry, but not clear
+                        # if it would matter for polymer phase separatation/
+                        # microparticle formation:
+                        "viscosity"]
 
 def preprocess_data(df):
     # Accepts an input DataFrame and produces the typical
     # training (X) and prediction (y) values needed for ML
-    X = df[["Dextran (wt%)", "PEO (wt%)"]].to_numpy()
+    X = df[["Dextran (wt%)",  "PEO (wt%)"]].to_numpy()
     y = df["Phase Separated"].to_numpy()
     y[y == "Yes"] = 1
     y[y == "No"] = 0
@@ -66,15 +62,13 @@ def preprocess_data(df):
     return X, y
 
 
-def plot_input_data_cesar_MD(
-    df,
-    title="Cesar MD input data\n",
-    fig_name="cesar_md_input_data_",
-    title_addition=None,
-    y_pred=None,
-    norm=None,
-    cbar_label="",
-):
+def plot_input_data_cesar_MD(df,
+                             title="Cesar MD input data\n",
+                             fig_name="cesar_md_input_data_",
+                             title_addition=None,
+                             y_pred=None,
+                             norm=None,
+                             cbar_label=""):
     # Produce a simple scatter plot of Cesar's
     # MD input data, meant for side-by-side comparison
     # with the expt PEO/DEX binary phase separation data from
@@ -93,11 +87,13 @@ def plot_input_data_cesar_MD(
     ax.set_aspect("equal")
     ax.set_xlabel("Dextran (wt %)")
     ax.set_ylabel("PEO (wt %)")
-    ax.set_title(f"{title}" f"{title_addition}")
+    ax.set_title(f"{title}"
+                 f"{title_addition}")
     if y_pred is not None:
         cbar = fig.colorbar(im, ax=ax, shrink=0.9)
         cbar.set_label(cbar_label)
-    fig.savefig(f"{fig_name}{fig_name_addition}.png", dpi=300)
+    fig.savefig(f"{fig_name}{fig_name_addition}.png",
+                dpi=300)
 
 
 def plot_input_data(X, y):
@@ -110,10 +106,11 @@ def plot_input_data(X, y):
     # simple/raw scatter plot of the raw data
     # from Mihee:
     ax_scatter = axes[0]
-    ax_scatter.set_title(
-        "Scatter plot of binary phase separation data\n" "(1.0 is phase separated)"
-    )
-    im = ax_scatter.scatter(X[..., 0], X[..., 1], c=y)
+    ax_scatter.set_title("Scatter plot of binary phase separation data\n"
+                         "(1.0 is phase separated)")
+    im = ax_scatter.scatter(X[..., 0],
+                            X[..., 1],
+                            c=y)
 
     # a somewhat-prettier representation of the data
     # with some interpolation, to get us thinking about
@@ -126,11 +123,9 @@ def plot_input_data(X, y):
     # value since we'll have some missing points that
     # i.e., Mihee didn't collect (at the time of writing 34/48
     # grid points were sampled)
-    grid = np.full(
-        shape=(num_unique_dex_vals, num_unique_peo_vals),
-        fill_value=np.nan,
-        dtype=np.float64,
-    )
+    grid = np.full(shape=(num_unique_dex_vals, num_unique_peo_vals),
+                   fill_value=np.nan,
+                   dtype=np.float64)
     ax_im = axes[1]
     ax_im.set_title("Interpolated heatmap of binary phase\nseparation data")
     # use a trick with rankdata to assign
@@ -138,12 +133,17 @@ def plot_input_data(X, y):
     x_grid_positions = rankdata(X[..., 0], method="dense") - 1
     y_grid_positions = rankdata(X[..., 1], method="dense") - 1
     # assign value to grid positions based on the ordering
-    for row, column, value in zip(x_grid_positions, y_grid_positions, y):
+    for row, column, value in zip(x_grid_positions,
+                                  y_grid_positions,
+                                  y):
         grid[row, column] = value
     # NOTE: the "interpolation" isn't really doing much
     # here, but the imshow visualization is still helpful
     # to show the gaps in collected experimental data
-    ax_im.imshow(grid.T, origin="lower", extent=[0, 13, 0, 13], interpolation="nearest")
+    ax_im.imshow(grid.T,
+                 origin="lower",
+                 extent=[0, 13, 0, 13],
+                 interpolation="nearest")
     for ax in axes:
         ax.set_aspect("equal")
         ax.set_xlabel("Dextran (wt %)")
@@ -153,24 +153,18 @@ def plot_input_data(X, y):
     fig.savefig("binary_phase_sep_heat_map.png", dpi=300)
 
 
-hyper_param_dict = {
-    "rfc": {
-        "max_depth": [1, 10, 100, None],
-        "min_samples_split": [2, 4, 10],
-    },
-    "xgb_class": {
-        "n_estimators": [20, 100, 2_000],
-        "subsample": [1, 0.9, 0.8],
-        "colsample_bytree": [1, 0.9, 0.7],
-    },
-    "xgb_dart": {
-        "n_estimators": [20, 100, 300],
-        "subsample": [1, 0.8],
-        "colsample_bytree": [1, 0.9, 0.7],
-    },
-    "svm": {"C": [1, 10], "kernel": ["linear", "rbf"]},
-}
-
+hyper_param_dict = {"rfc": {"max_depth": [1, 10, 100, None],
+                            "min_samples_split": [2, 4, 10],
+                            },
+                    "xgb_class": {"n_estimators": [20, 100, 2_000],
+                                  "subsample": [1, 0.9, 0.8],
+                                  "colsample_bytree": [1, 0.9, 0.7]},
+                    "xgb_dart": {"n_estimators": [20, 100, 300],
+                                  "subsample": [1, 0.8],
+                                  "colsample_bytree": [1, 0.9, 0.7]},
+                    "svm": {"C": [1, 10],
+                            "kernel": ["linear", "rbf"]},
+                    }
 
 def color_df(styler):
     # TODO: set vmin/vmax based on actual
@@ -190,7 +184,10 @@ def entropy(y):
     return ent
 
 
-def dempster_shafer_pred(estimators, X_train, y_train, X_test):
+def dempster_shafer_pred(estimators,
+                         X_train,
+                         y_train,
+                         X_test):
     # train a list of estimators, and then use
     # Dempster-Shafer theory to combine their
     # predictions on test data
@@ -222,22 +219,18 @@ def dempster_shafer_pred(estimators, X_train, y_train, X_test):
     return y_pred_ds, y_normalized_beliefs
 
 
-def plot_tri_phase_diagram(
-    X,
-    y,
-    plot_path,
-    plot_name="ternary.png",
-    bottom_label_z="",
-    right_label_y="",
-    left_label_x="",
-    clockwise=True,
-):
+def plot_tri_phase_diagram(X,
+                           y,
+                           plot_path,
+                           plot_name="ternary.png",
+                           bottom_label_z="",
+                           right_label_y="",
+                           left_label_x="",
+                           clockwise=True):
     if X.shape[1] != 3:
         raise ValueError("Ternary plot requires input with three variables.")
     if np.unique(np.sum(X, axis=1)).size != 1:
-        raise ValueError(
-            "The ternary phase diagram inputs do not sum to a constant value."
-        )
+        raise ValueError("The ternary phase diagram inputs do not sum to a constant value.")
     figure, tax = ternary.figure(scale=100)
     tax.clear_matplotlib_ticks()
     tax.boundary(linewidth=2.0)
@@ -262,8 +255,12 @@ def plot_tri_phase_diagram(
         tax.left_axis_label(f"{bottom_label_z}", offset=offset)
     tax.scatter(X_loc, c=y / y.max())
     tax.set_title("Ternary Phase Diagram (synthetic data for now)\n", fontsize=10)
-    tax.get_axes().axis("off")
-    tax.ticks(axis="lbr", multiple=10, linewidth=1, offset=0.025, clockwise=clockwise)
+    tax.get_axes().axis('off')
+    tax.ticks(axis='lbr',
+              multiple=10,
+              linewidth=1,
+              offset=0.025,
+              clockwise=clockwise)
     # this is apparently needed on some platforms for
     # axis labels to show up; see:
     # https://github.com/marcharper/python-ternary/blob/master/README.md?plain=1#L472
@@ -272,13 +269,11 @@ def plot_tri_phase_diagram(
     return figure
 
 
-def plot_ma_shap_vals_per_model(
-    shap_values,
-    feature_names,
-    fig_title: str,
-    fig_name: str,
-    top_feat_count: Optional[int] = None,
-):
+def plot_ma_shap_vals_per_model(shap_values,
+                                feature_names,
+                                fig_title: str,
+                                fig_name: str,
+                                top_feat_count: Optional[int] = None):
     # plot the mean absolute SHAP values for
     # any models
     # NOTE: shap_values should be for the "positive" class,
@@ -307,20 +302,20 @@ def plot_ma_shap_vals_per_model(
 
 def read_in_cesar_cg_md_data():
     # CG-MD gyration data:
-    data = importlib.resources.files("neat_ml").joinpath(
-        "data/CG-PHASE-DESCRIPTORS.xlsx"
-    )
-    df_cesar_cg_gyr_persistence = pd.read_excel(data, sheet_name=0)
-    df_cesar_cg_gyr_persistence.dropna(how="all", inplace=True)  # shape (49, 10)
+    data = importlib.resources.files("neat_ml").joinpath("data/CG-PHASE-DESCRIPTORS.xlsx")
+    df_cesar_cg_gyr_persistence = pd.read_excel(data,
+                                                sheet_name=0)
+    df_cesar_cg_gyr_persistence.dropna(how='all', inplace=True) # shape (49, 10)
     assert df_cesar_cg_gyr_persistence.isna().sum().sum() == 0
     # CG-MD RDF data:
-    df_cesar_cg_rdf = pd.read_excel(data, sheet_name=1)
+    df_cesar_cg_rdf = pd.read_excel(data,
+                                    sheet_name=1)
     # use sensible column names for RDF values,
     # otherwise we end up with unlabelled floats
-    df_cesar_cg_rdf = _add_df_col_prefix(
-        df=df_cesar_cg_rdf, start_index=3, prefix="RDF_"
-    )
-    df_cesar_cg_rdf.dropna(how="all", inplace=True)  # shape (49, 904)
+    df_cesar_cg_rdf = _add_df_col_prefix(df=df_cesar_cg_rdf,
+                                         start_index=3,
+                                         prefix="RDF_")
+    df_cesar_cg_rdf.dropna(how='all', inplace=True) # shape (49, 904)
     assert df_cesar_cg_rdf.isna().sum().sum() == 0
     # fuse Cesar's CG-MD data on the WT % columns
     df_cesar_cg = _merge_dfs(df_cesar_cg_gyr_persistence, df_cesar_cg_rdf)
@@ -328,7 +323,9 @@ def read_in_cesar_cg_md_data():
     # match expectations
     assert df_cesar_cg.isna().sum().sum() == 0
     expected_rows = df_cesar_cg_rdf.shape[0]
-    expected_cols = df_cesar_cg_rdf.shape[1] + df_cesar_cg_gyr_persistence.shape[1] - 3
+    expected_cols = (df_cesar_cg_rdf.shape[1] +
+                     df_cesar_cg_gyr_persistence.shape[1] -
+                     3)
     assert df_cesar_cg.shape == (expected_rows, expected_cols)
     # Cesar's binary CG MD simulation data has a different number
     # of records, and different set of PEO/dex percentages, than
@@ -340,17 +337,17 @@ def read_in_cesar_cg_md_data():
     # the columns appropriately
     # careful of mutability here:
     # https://github.com/pandas-dev/pandas/issues/34364#issuecomment-1960548120
-    df_cesar_cg = _add_df_col_prefix(df=df_cesar_cg, start_index=3, prefix="CG_")
+    df_cesar_cg = _add_df_col_prefix(df=df_cesar_cg,
+                                     start_index=3,
+                                     prefix="CG_")
     return df_cesar_cg
 
 
-def plot_ebm_data(
-    explain_data: dict,
-    original_feat_names,
-    fig_title: str,
-    fig_name: str,
-    top_feat_count: int = 10,
-):
+def plot_ebm_data(explain_data: dict,
+                  original_feat_names,
+                  fig_title: str,
+                  fig_name: str,
+                  top_feat_count: int = 10):
     # plot top top_feat_count features from
     # ExplainableBoostingClassifier data
     fig, ax = plt.subplots(1, 1)
@@ -407,7 +404,8 @@ def build_df_from_exp_img_paths(list_img_filepaths: Sequence[str]) -> pd.DataFra
     # take the % PEO / % DEX platereader image filepaths
     # and construct the initial skeleton of a useful DataFrame
     prog = re.compile(r".*DEX(\d+)wt_,PEO(\d+)wt_\.tiff")
-    data_dict: dict = {"WT% PEO": [], "WT% DEX": []}
+    data_dict: dict = {"WT% PEO": [],
+                       "WT% DEX": []}
     data_dict["image_filepath"] = list_img_filepaths
     for img_path in list_img_filepaths:
         match = prog.search(img_path)
@@ -421,38 +419,39 @@ def build_df_from_exp_img_paths(list_img_filepaths: Sequence[str]) -> pd.DataFra
 
 
 @memory.cache
-def skimage_hough_transform(df: pd.DataFrame, debug: bool = False) -> pd.DataFrame:
+def skimage_hough_transform(df: pd.DataFrame,
+                            debug: bool = False) -> pd.DataFrame:
     # given the DataFrame of plate reader data/image
     # filepaths, use sklearn Hough transforms to estimate
     # the average diameters of the bubbles in each image
     df_new = df.copy()
-    median_droplet_radii = np.empty(shape=(df_new.shape[0]), dtype=np.float64)
+    median_droplet_radii = np.empty(shape=(df_new.shape[0]),
+                                    dtype=np.float64)
     # 2 % PEO/ 2 % DEX as "background:"
-    background_filepath = (
-        df_new.loc[(df_new["WT% PEO"] == 2) & (df_new["WT% DEX"] == 2)]
-    ).image_filepath.values[0]
+    background_filepath = (df_new.loc[(df_new["WT% PEO"] == 2) & (df_new["WT% DEX"] == 2)]).image_filepath.values[0]
     background = skimage.io.imread(background_filepath)
     background = skimage.util.img_as_ubyte(background)
     # threshold for background determined empirically
     background_threshold = np.median(background) + 15
-    for index, row in tqdm(
-        df_new.iterrows(), total=df_new.shape[0], desc="skimage_hough_transform"
-    ):
+    for index, row in tqdm(df_new.iterrows(),
+                           total=df_new.shape[0],
+                           desc="skimage_hough_transform"):
         img_filepath = row.image_filepath
-        image = skimage.io.imread(img_filepath)  # shape: (2052, 2456)
+        image = skimage.io.imread(img_filepath) # shape: (2052, 2456)
         image = skimage.util.img_as_ubyte(image)
         # anything darker than the background threshold
         # should be set back to the median; helps remove
         # the background "dots"
         image[image < background_threshold] = np.median(image)
-        edges = skimage.feature.canny(
-            image, sigma=3, low_threshold=10, high_threshold=50
-        )
+        edges = skimage.feature.canny(image,
+                                      sigma=3,
+                                      low_threshold=10,
+                                      high_threshold=50)
         hough_radii = np.arange(2, 22, 2)
         hough_res = skimage.transform.hough_circle(edges, hough_radii)
-        accums, cx, cy, radii = skimage.transform.hough_circle_peaks(
-            hough_res, hough_radii, total_num_peaks=12
-        )
+        accums, cx, cy, radii = skimage.transform.hough_circle_peaks(hough_res,
+                                                                     hough_radii,
+                                                                     total_num_peaks=12)
         if radii.size == 0:
             median_droplet_radius = 0
         else:
@@ -465,15 +464,12 @@ def skimage_hough_transform(df: pd.DataFrame, debug: bool = False) -> pd.DataFra
             fig, ax = plt.subplots(1, 1, figsize=(8, 8))
             image = skimage.color.gray2rgb(image)
             for center_y, center_x, radius in zip(cy, cx, radii):
-                circy, circx = skimage.draw.circle_perimeter(
-                    center_y, center_x, radius, shape=image.shape
-                )
+                circy, circx = skimage.draw.circle_perimeter(center_y, center_x, radius,
+                                    shape=image.shape)
                 image[circy, circx] = (220, 20, 20)
                 ax.imshow(image, cmap="gray", vmin=0, vmax=255)
             ax.set_title(f"Median droplot radius: {median_droplet_radius}")
-            fig.savefig(
-                f"hough_transform_index_{index}_{wt_peo}_peo_{wt_dex}_dex.png", dpi=300
-            )
+            fig.savefig(f"hough_transform_index_{index}_{wt_peo}_peo_{wt_dex}_dex.png", dpi=300)
             matplotlib.pyplot.close()
     df_new["median_radii_skimage_hough"] = median_droplet_radii
     return df_new
@@ -490,21 +486,31 @@ def blob_detection(df: pd.DataFrame, debug: bool = False) -> pd.DataFrame:
     # TODO: expand to include the other techniques mentioned at:
     # https://scikit-image.org/docs/stable/auto_examples/features_detection/plot_blob.html
     df_new = df.copy()
-    median_droplet_radii = np.empty(shape=(df_new.shape[0]), dtype=np.float64)
-    num_blobs = np.empty(shape=(df_new.shape[0]), dtype=np.int64)
-    median_droplet_radii_log = np.empty(shape=(df_new.shape[0]), dtype=np.float64)
-    num_blobs_log = np.empty(shape=(df_new.shape[0]), dtype=np.int64)
-    for index, row in tqdm(
-        df_new.iterrows(), total=df_new.shape[0], desc="skimage_blob_doh"
-    ):
+    median_droplet_radii = np.empty(shape=(df_new.shape[0]),
+                                    dtype=np.float64)
+    num_blobs = np.empty(shape=(df_new.shape[0]),
+                         dtype=np.int64)
+    median_droplet_radii_log = np.empty(shape=(df_new.shape[0]),
+                                        dtype=np.float64)
+    num_blobs_log = np.empty(shape=(df_new.shape[0]),
+                             dtype=np.int64)
+    for index, row in tqdm(df_new.iterrows(),
+                           total=df_new.shape[0],
+                           desc="skimage_blob_doh"):
         img_filepath = row.image_filepath
-        image = skimage.io.imread(img_filepath)  # shape: (2052, 2456)
+        image = skimage.io.imread(img_filepath) # shape: (2052, 2456)
         image = skimage.util.img_as_ubyte(image)
-        A = skimage.feature.blob_doh(image, min_sigma=15, max_sigma=500, num_sigma=200)
+        A = skimage.feature.blob_doh(image,
+                                     min_sigma=15,
+                                     max_sigma=500,
+                                     num_sigma=200)
         # LoG is *very* slow; the sigma bounds
         # were determined empirically on a single
         # sample image
-        B = skimage.feature.blob_log(image, min_sigma=10, max_sigma=25, num_sigma=400)
+        B = skimage.feature.blob_log(image,
+                                     min_sigma=10,
+                                     max_sigma=25,
+                                     num_sigma=400)
         num_blobs_img = A.shape[0]
         num_blobs_img_log = B.shape[0]
         blob_radii = A[:, 2]
@@ -527,9 +533,11 @@ def blob_detection(df: pd.DataFrame, debug: bool = False) -> pd.DataFrame:
             axs[0].set_title("original")
             for ind, mat in enumerate([A, B]):
                 for center_y, center_x, radius in mat:
-                    patch = matplotlib.patches.Circle(
-                        (center_x, center_y), radius, color="red", lw=1, fill=False
-                    )
+                    patch = matplotlib.patches.Circle((center_x, center_y),
+                                                      radius,
+                                                      color="red",
+                                                      lw=1,
+                                                      fill=False)
                     axs[ind + 1].add_patch(patch)
             axs[1].imshow(image)
             axs[1].set_title(f"DoH num droplets identified: {num_blobs_img}")
@@ -550,21 +558,23 @@ def opencv_blob_detection(df: pd.DataFrame, debug: bool = False) -> pd.DataFrame
     # use SimpleBlobDetector from OpenCV as an alternative
     # approach to blob detection
     df_new = df.copy()
-    median_droplet_radii = np.empty(shape=(df_new.shape[0]), dtype=np.float64)
-    num_blobs = np.empty(shape=(df_new.shape[0]), dtype=np.int64)
-    for index, row in tqdm(
-        df_new.iterrows(), total=df_new.shape[0], desc="OpenCV SimpleBlobDetector"
-    ):
+    median_droplet_radii = np.empty(shape=(df_new.shape[0]),
+                                    dtype=np.float64)
+    num_blobs = np.empty(shape=(df_new.shape[0]),
+                         dtype=np.int64)
+    for index, row in tqdm(df_new.iterrows(),
+                           total=df_new.shape[0],
+                           desc="OpenCV SimpleBlobDetector"):
         blob_radii_img = []
         img_filepath = row.image_filepath
         image = cv2.imread(img_filepath, cv2.IMREAD_GRAYSCALE)
-        params = cv2.SimpleBlobDetector_Params()  # type: ignore[attr-defined]
+        params = cv2.SimpleBlobDetector_Params() # type: ignore[attr-defined]
         # adjust parameters for blob detection
         # some empirical adjustments to achieve
         # reasonable-looking phase maps
         params.filterByArea = True
         params.minArea = 300
-        detector = cv2.SimpleBlobDetector_create(params)  # type: ignore[attr-defined]
+        detector = cv2.SimpleBlobDetector_create(params) # type: ignore[attr-defined]
         # actual detection of blobs happens:
         keypoints = detector.detect(image)
         # NOTE: I don't think OpenCV gives us the blob radii
@@ -586,43 +596,40 @@ def opencv_blob_detection(df: pd.DataFrame, debug: bool = False) -> pd.DataFrame
             image_orig = skimage.color.gray2rgb(image)
             axs[0].imshow(image_orig)
             axs[0].set_title("original")
-            blob_image = cv2.drawKeypoints(
-                image.copy(),  # type: ignore[call-overload]
-                keypoints,
-                None,
-                (255, 0, 0),
-                cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
-            )
+            blob_image = cv2.drawKeypoints(image.copy(), #type: ignore[call-overload]
+                                           keypoints,
+                                           None,
+                                           (255, 0, 0),
+                                           cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
             axs[1].imshow(blob_image)
             axs[1].set_title(f"OpenCV SimpleBlobDetector (Found {num_blobs_img} blobs)")
-            fig.savefig(
-                f"OpenCV_blob_index_{index}_{wt_peo}_peo_{wt_dex}_dex.png", dpi=300
-            )
+            fig.savefig(f"OpenCV_blob_index_{index}_{wt_peo}_peo_{wt_dex}_dex.png", dpi=300)
             matplotlib.pyplot.close()
     df_new["num_blobs_opencv"] = num_blobs
     df_new["median_radii_opencv"] = median_droplet_radii
     return df_new
 
 
+
 def read_in_cesar_all_atom_md_data():
-    data = importlib.resources.files("neat_ml").joinpath(
-        "data/AA-PHASE-DESCRIPTORS.xlsx"
-    )
+    data = importlib.resources.files("neat_ml").joinpath("data/AA-PHASE-DESCRIPTORS.xlsx")
     # all-atom enthalpy data:
-    df_cesar_aa_enthalpy = pd.read_excel(data, sheet_name=0)
+    df_cesar_aa_enthalpy = pd.read_excel(data,
+                                         sheet_name=0)
     # some empty (NaN) rows and columns to filter out:
     for axis in [0, 1]:
-        df_cesar_aa_enthalpy.dropna(axis=axis, how="all", inplace=True)
+        df_cesar_aa_enthalpy.dropna(axis=axis, how='all', inplace=True)
     # make sure no NaNs survived the filtering of
     # AA enthalpy data:
-    assert df_cesar_aa_enthalpy.isna().sum().sum() == 0  # shape: (49, 15)
+    assert df_cesar_aa_enthalpy.isna().sum().sum() == 0 # shape: (49, 15)
 
     # all-atom H-bond data:
-    df_cesar_aa_h_bonds = pd.read_excel(data, sheet_name=1)
+    df_cesar_aa_h_bonds = pd.read_excel(data,
+                                        sheet_name=1)
     # some empty (NaN) rows and columns to filter out:
     for axis in [0, 1]:
-        df_cesar_aa_h_bonds.dropna(axis=axis, how="all", inplace=True)
-    assert df_cesar_aa_h_bonds.isna().sum().sum() == 0  # shape: (49, 6)
+        df_cesar_aa_h_bonds.dropna(axis=axis, how='all', inplace=True)
+    assert df_cesar_aa_h_bonds.isna().sum().sum() == 0 # shape: (49, 6)
 
     # fuse Cesar's AA-MD data on the WT % columns
     df_cesar_aa = _merge_dfs(df_cesar_aa_enthalpy, df_cesar_aa_h_bonds)
@@ -631,7 +638,9 @@ def read_in_cesar_all_atom_md_data():
     assert df_cesar_aa.shape == (49, 18)
     # Prefix the feature columns with "AA_" to distinguish from
     # the other CG data
-    df_cesar_aa = _add_df_col_prefix(df=df_cesar_aa, start_index=3, prefix="AA_")
+    df_cesar_aa = _add_df_col_prefix(df=df_cesar_aa,
+                                     start_index=3,
+                                     prefix="AA_")
     return df_cesar_aa
 
 
@@ -644,18 +653,18 @@ def _add_df_col_prefix(df, start_index: int, prefix: str):
     df = df.rename(columns=rename_dict)
     return df
 
-
 def _merge_dfs(df1, df2):
     # a common dataframe merge scheme we use
-    df = df1.merge(df2, on=["WT% DEX", "WT% PEO", "WT% WATER"])
+    df = df1.merge(df2,
+                   on=["WT% DEX",
+                       "WT% PEO",
+                       "WT% WATER"])
     return df
 
 
-def feature_importance_consensus(
-    pos_class_feat_imps: Sequence[npt.NDArray[np.float64]],
-    feature_names: npt.NDArray,
-    top_feat_count: int,
-) -> Tuple[npt.NDArray, npt.NDArray[np.int64], int]:
+def feature_importance_consensus(pos_class_feat_imps: Sequence[npt.NDArray[np.float64]],
+                                 feature_names: npt.NDArray,
+                                 top_feat_count: int) -> Tuple[npt.NDArray, npt.NDArray[np.int64], int]:
     """
     Parameters
     ----------
@@ -698,30 +707,29 @@ def feature_importance_consensus(
         top_feature_names = feature_names[sort_idx][:top_feat_count]
         for top_feature_name in top_feature_names:
             top_feat_data[top_feature_name] += 1
-    top_feat_data = dict(
-        sorted(top_feat_data.items(), key=lambda item: item[1], reverse=True)
-    )
+    top_feat_data = dict(sorted(top_feat_data.items(),
+                                key=lambda item: item[1],
+                                reverse=True))
     ranked_feature_names = np.asarray(list(top_feat_data.keys()))
     ranked_feature_counts = np.asarray(list(top_feat_data.values()))
     return ranked_feature_names, ranked_feature_counts, num_input_models
 
 
-def plot_feat_import_consensus(
-    ranked_feature_names: npt.NDArray,
-    ranked_feature_counts: npt.NDArray[np.int64],
-    num_input_models: int,
-    top_feat_count: int,
-    fig_name: Optional[str] = "feat_imp_consensus.png",
-):
+def plot_feat_import_consensus(ranked_feature_names: npt.NDArray,
+                               ranked_feature_counts: npt.NDArray[np.int64],
+                               num_input_models: int,
+                               top_feat_count: int,
+                               fig_name: Optional[str] = "feat_imp_consensus.png"):
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     y_pos = np.arange(ranked_feature_names.size)
-    ax.barh(y_pos, (ranked_feature_counts / num_input_models) * 100)
+    ax.barh(y_pos,
+            (ranked_feature_counts/num_input_models) * 100)
     ax.set_xlim(0, 100)
     ax.set_xlabel(f"% ML models where ranked in top {top_feat_count} features")
     ax.set_yticks(y_pos, labels=ranked_feature_names)
     ax.set_title(f"Feature importance consensus amongst {num_input_models} models")
     fig.tight_layout()
-    fig.savefig(fig_name, dpi=300)  # type: ignore
+    fig.savefig(fig_name, dpi=300) # type: ignore
     return fig
 
 
@@ -776,15 +784,14 @@ def build_lime_data(X, model):
     """
     check_is_fitted(model)
     out = np.empty(shape=X.shape, dtype=np.float64)
-    explainer_lime = lime.lime_tabular.LimeTabularExplainer(
-        X.to_numpy(), feature_names=X.columns
-    )
-    for index, row in tqdm(
-        X.iterrows(), total=X.shape[0], desc="build LIME feature importance array"
-    ):
-        exp = explainer_lime.explain_instance(
-            X.to_numpy()[index], model.predict_proba, num_features=X.shape[1]
-        )
+    explainer_lime = lime.lime_tabular.LimeTabularExplainer(X.to_numpy(),
+                                                            feature_names=X.columns)
+    for index, row in tqdm(X.iterrows(),
+                           total=X.shape[0],
+                           desc="build LIME feature importance array"):
+        exp = explainer_lime.explain_instance(X.to_numpy()[index],
+                                              model.predict_proba,
+                                              num_features=X.shape[1])
         exp_arr = np.asarray(list(exp.as_map().values())[0])
         # sort the feature importance scores to order them
         # alongside the columns (first score is for column 0, etc...)
@@ -797,9 +804,10 @@ def build_lime_data(X, model):
     return out
 
 
-def plot_top_feat_corrs(
-    ranked_feature_names: npt.NDArray, X: pd.DataFrame, y: npt.NDArray, n: int = 10
-):
+def plot_top_feat_corrs(ranked_feature_names: npt.NDArray,
+                        X: pd.DataFrame,
+                        y: npt.NDArray,
+                        n: int = 10):
     """
     Plot correlations between the top-ranked consensus
     features and the response.
@@ -833,13 +841,14 @@ def plot_top_feat_corrs(
             color = "red"
         center_x = (ax.get_xlim()[1] + ax.get_xlim()[0]) / 2
         center_y = (ax.get_ylim()[1] + ax.get_ylim()[0]) / 2
-        ax.text(center_x, center_y, f"{R = :.2f}", color=color)
-        ax.plot(
-            np.unique(feature_vals),
-            np.poly1d(np.polyfit(feature_vals, y, 1))(np.unique(feature_vals)),
-            color=color,
-            ls="--",
-            alpha=0.3,
-        )
+        ax.text(center_x,
+                center_y,
+                f"{R = :.2f}",
+                color=color)
+        ax.plot(np.unique(feature_vals),
+                np.poly1d(np.polyfit(feature_vals, y, 1))(np.unique(feature_vals)),
+                color=color,
+                ls="--",
+                alpha=0.3)
     fig.tight_layout()
     fig.savefig("top_feature_response_corrs.png", dpi=300)

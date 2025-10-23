@@ -1,13 +1,10 @@
 import numpy as np
 import matplotlib
-
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import skimage
 
-image = skimage.io.imread(
-    "/Users/treddy/LANL/LDRD_DR_NEAT_data/Images/DEXTRAN (10k) 2~14wt_ (with PEO 10K)/DEXTRAN 2wt_/DEX2wt_,PEO2wt_.tiff"
-)
+image = skimage.io.imread("/Users/treddy/LANL/LDRD_DR_NEAT_data/Images/DEXTRAN (10k) 2~14wt_ (with PEO 10K)/DEXTRAN 2wt_/DEX2wt_,PEO2wt_.tiff")
 image = skimage.util.img_as_ubyte(image)
 median = np.median(image)
 fig, ax = plt.subplots(3, 2, figsize=(8, 8))
@@ -38,13 +35,15 @@ median = np.median(new_image)
 ax[3].axvline(median, c="red")
 whitened_image = image.copy()
 whitened_image[whitened_image > np.median(whitened_image)] = 255
-ax[4].imshow(whitened_image, cmap="gray", vmin=0, vmax=255)
+ax[4].imshow(whitened_image,
+             cmap="gray",
+             vmin=0, vmax=255)
 ax[4].set_title("Original with whitening above median")
 whitened_processed_image = new_image.copy()
-whitened_processed_image[
-    whitened_processed_image > np.median(whitened_processed_image)
-] = 255
-ax[5].imshow(whitened_processed_image, cmap="gray", vmin=0, vmax=255)
+whitened_processed_image[whitened_processed_image > np.median(whitened_processed_image)] = 255
+ax[5].imshow(whitened_processed_image,
+             cmap="gray",
+             vmin=0, vmax=255)
 ax[5].set_title("Processed with whitening above median")
 fig.tight_layout()
 fig.savefig("debug.png", dpi=300)

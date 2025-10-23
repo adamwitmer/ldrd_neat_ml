@@ -27,8 +27,7 @@ def main():
 
     # let's find all the % PEO / % DEX .tiff filepaths and do
     # a few sanity checks
-    img_filepaths = glob.glob(f"{data_root_path}/**/*.tiff",
-                              recursive=True)
+    img_filepaths = glob.glob(f"{data_root_path}/**/*.tiff", recursive=True)
     assert len(img_filepaths) == 46
 
     # check that images all have the same pixel dims
@@ -48,10 +47,11 @@ def main():
     # Produce a standard plot of the binary phase system
     # points (we don't have phase "labels" yet)
     # TODO: should rename this function to something more generic
-    lib.plot_input_data_cesar_MD(df=df,
-                                 title="Plate Reader Image Data for PEO/DEX\n",
-                                 fig_name="plate_reader_image_points_",
-                                 )
+    lib.plot_input_data_cesar_MD(
+        df=df,
+        title="Plate Reader Image Data for PEO/DEX\n",
+        fig_name="plate_reader_image_points_",
+    )
 
     # there are a variety of ways we could try to estimate
     # the droplet sizes (diameters); perhaps it makes sense to try a few
@@ -60,65 +60,70 @@ def main():
     # 1) Using the Hough Transform
 
     df = lib.skimage_hough_transform(df=df, debug=True)
-    lib.plot_input_data_cesar_MD(df=df,
-                                 title="Plate Reader Image Data for PEO/DEX\n",
-                                 fig_name="plate_reader_image_points_hough_",
-                                 title_addition="(labels from median Hough radii)",
-                                 y_pred=df["median_radii_skimage_hough"],
-                                 cbar_label="median Hough radii",
-                                 )
+    lib.plot_input_data_cesar_MD(
+        df=df,
+        title="Plate Reader Image Data for PEO/DEX\n",
+        fig_name="plate_reader_image_points_hough_",
+        title_addition="(labels from median Hough radii)",
+        y_pred=df["median_radii_skimage_hough"],
+        cbar_label="median Hough radii",
+    )
 
     # 2) Using Blob Detection Techniques
     df = lib.blob_detection(df=df, debug=True)
-    lib.plot_input_data_cesar_MD(df=df,
-                                 title="Plate Reader Image Data for PEO/DEX\n",
-                                 fig_name="plate_reader_image_points_DoH_sigma",
-                                 title_addition="(labels from median DoH sigma/radii)",
-                                 y_pred=df["median_radii_DoH"],
-                                 cbar_label="median DoH sigma",
-                                 )
-    lib.plot_input_data_cesar_MD(df=df,
-                                 title="Plate Reader Image Data for PEO/DEX\n",
-                                 fig_name="plate_reader_image_points_DoH_num_blobs",
-                                 title_addition="(labels from DoH num blobs)",
-                                 y_pred=df["num_blobs_DoH"],
-                                 norm="symlog",
-                                 cbar_label="symlog scaled blob count",
-                                 )
-    lib.plot_input_data_cesar_MD(df=df,
-                                 title="Plate Reader Image Data for PEO/DEX\n",
-                                 fig_name="plate_reader_image_points_LoG_num_blobs",
-                                 title_addition="(labels from LoG num blobs)",
-                                 y_pred=df["num_blobs_LoG"],
-                                 norm="symlog",
-                                 cbar_label="symlog scaled blob count",
-                                 )
-    lib.plot_input_data_cesar_MD(df=df,
-                                 title="Plate Reader Image Data for PEO/DEX\n",
-                                 fig_name="plate_reader_image_points_LoG_radii",
-                                 title_addition="(labels from median LoG radii)",
-                                 y_pred=df["median_radii_LoG"],
-                                 cbar_label="median LoG radii",
-                                 )
+    lib.plot_input_data_cesar_MD(
+        df=df,
+        title="Plate Reader Image Data for PEO/DEX\n",
+        fig_name="plate_reader_image_points_DoH_sigma",
+        title_addition="(labels from median DoH sigma/radii)",
+        y_pred=df["median_radii_DoH"],
+        cbar_label="median DoH sigma",
+    )
+    lib.plot_input_data_cesar_MD(
+        df=df,
+        title="Plate Reader Image Data for PEO/DEX\n",
+        fig_name="plate_reader_image_points_DoH_num_blobs",
+        title_addition="(labels from DoH num blobs)",
+        y_pred=df["num_blobs_DoH"],
+        norm="symlog",
+        cbar_label="symlog scaled blob count",
+    )
+    lib.plot_input_data_cesar_MD(
+        df=df,
+        title="Plate Reader Image Data for PEO/DEX\n",
+        fig_name="plate_reader_image_points_LoG_num_blobs",
+        title_addition="(labels from LoG num blobs)",
+        y_pred=df["num_blobs_LoG"],
+        norm="symlog",
+        cbar_label="symlog scaled blob count",
+    )
+    lib.plot_input_data_cesar_MD(
+        df=df,
+        title="Plate Reader Image Data for PEO/DEX\n",
+        fig_name="plate_reader_image_points_LoG_radii",
+        title_addition="(labels from median LoG radii)",
+        y_pred=df["median_radii_LoG"],
+        cbar_label="median LoG radii",
+    )
     # try with OpenCV as well:
     df = lib.opencv_blob_detection(df=df, debug=True)
-    lib.plot_input_data_cesar_MD(df=df,
-                                 title="Plate Reader Image Data for PEO/DEX\n",
-                                 fig_name="plate_reader_image_points_OpenCV_num_blobs",
-                                 title_addition="(labels from OpenCV num blobs)",
-                                 y_pred=df["num_blobs_opencv"],
-                                 norm="symlog",
-                                 cbar_label="symlog scaled blob count",
-                                 )
-    lib.plot_input_data_cesar_MD(df=df,
-                                 title="Plate Reader Image Data for PEO/DEX\n",
-                                 fig_name="plate_reader_image_points_OpenCV_radii",
-                                 title_addition="(labels from OpenCV median radii)",
-                                 y_pred=df["median_radii_opencv"],
-                                 cbar_label="median OpenCV radii",
-                                 )
-
-
+    lib.plot_input_data_cesar_MD(
+        df=df,
+        title="Plate Reader Image Data for PEO/DEX\n",
+        fig_name="plate_reader_image_points_OpenCV_num_blobs",
+        title_addition="(labels from OpenCV num blobs)",
+        y_pred=df["num_blobs_opencv"],
+        norm="symlog",
+        cbar_label="symlog scaled blob count",
+    )
+    lib.plot_input_data_cesar_MD(
+        df=df,
+        title="Plate Reader Image Data for PEO/DEX\n",
+        fig_name="plate_reader_image_points_OpenCV_radii",
+        title_addition="(labels from OpenCV median radii)",
+        y_pred=df["median_radii_opencv"],
+        cbar_label="median OpenCV radii",
+    )
 
 
 if __name__ == "__main__":
