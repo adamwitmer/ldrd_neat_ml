@@ -6,46 +6,9 @@ from matplotlib.lines import Line2D
 from skimage import measure 
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import pairwise_distances_argmin_min
+from matplotlib.ticker import MaxNLocator
 
 # TODO: fix inconsistencies in docstring formatting (issue #12)
-def _axis_ranges(
-    df1: pd.DataFrame,
-    df2: pd.DataFrame,
-    x_col: str,
-    y_col: str,
-    pad: int,
-) -> tuple[list[int], list[int]]:
-    """
-    Calculates shared axis ranges for plotting two DataFrames.
-
-    This utility function finds the maximum value for specified
-    x and y columns across two separate DataFrames. It then 
-    creates axis ranges from zero to this maximum value plus 
-    a given padding.
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        The first DataFrame for comparison.
-    df2 : pd.DataFrame
-        The second DataFrame for comparison.
-    x_col : str
-        The name of the column representing the x-axis.
-    y_col : str
-        The name of the column representing the y-axis.
-    pad : int, optional
-        The padding to add to the maximum axis value.
-
-    Returns
-    -------
-    tuple[list[int], list[int]]
-        A tuple containing two lists: the x-axis range [0, x_max] and the
-        y-axis range [0, y_max].
-    """
-    x_max = max(df1[x_col].max(), df2[x_col].max()) + pad
-    y_max = max(df1[y_col].max(), df2[y_col].max()) + pad
-    return [0, int(x_max)], [0, int(y_max)]
-
 class GMMWrapper:
     """
     A wrapper to use a GMM trained on feature data as a 
@@ -194,10 +157,6 @@ def _standardise_labels(
 def _set_axis_style(ax, xrange: list[int] | None, yrange: list[int] | None):
     """
     Apply consistent styling *and* force identical tick-spacing & integer labels.
-
-    - step = round(max(xrange_span, yrange_span)/5)
-    - both axes MajorLocator(step)
-    - both axes FormatStrFormatter('%.0f')
     """
     ax.set_xlim(xrange)
     ax.set_ylim(yrange)
@@ -212,8 +171,15 @@ def _set_axis_style(ax, xrange: list[int] | None, yrange: list[int] | None):
         which="both",
         top=True,
         right=True,
-        labelsize=24,
+        labelsize=34,
+        pad=20,
     )
+    # set consistent use of integer labels
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    # set ``bold`` tick mark font weight
+    for label in ax.get_xticklabels() + ax.get_yticklabels():
+        label.set_weight('bold')
 
 def plot_gmm_decision_regions(
     df: pd.DataFrame,
@@ -318,7 +284,7 @@ def plot_gmm_composition_phase(
     y_col: str,
     phase_col: str,
     ax,
-    point_cmap: Optional[Sequence[str]] = None,
+    point_cmap: Optional[list[str]] = None,
 ) -> None:
     """
     Trains a GMM and creates a scatter trace for data points.
@@ -358,7 +324,7 @@ def plot_gmm_composition_phase(
     x_comp = df[[x_col, y_col]].to_numpy()
     std_labels, _ = _standardise_labels(raw_labels, x_comp)
     if point_cmap is None:
-        point_cmap = ("aquamarine", "lightsteelblue")
+        point_cmap = ["#FFFFCC", "dodgerblue"]
     mask_two = std_labels == 0
     ax.scatter(
         x_comp[mask_two, 0], x_comp[mask_two, 1],

@@ -143,7 +143,7 @@ def test_visual_regression_on_helpers(
             json.dump(test_params, f)
         extra_kwargs["json_path"] = str(json_file_path)
 
-    out_png = tmp_path / fname
+    out_png = tmp_path/ "out" / fname
     writer(file_path=csv, output_path=out_png, **extra_kwargs)
 
     assert out_png.is_file()
@@ -166,7 +166,7 @@ def test_plot_two_scatter_visual_regression(
     csv2 = tmp_path / "scatter_B.csv"
     pd.DataFrame({"X": [1, 2, 3], "Y": [1, 2, 3]}).to_csv(csv2, index=False)
 
-    out_png = tmp_path / "plot_two_scatter.png"
+    out_png = tmp_path/ "out" / "plot_two_scatter.png"
     pmf.plot_two_scatter(
         csv1_path=csv1,
         csv2_path=csv2,
@@ -219,15 +219,20 @@ json_file, out_dict, err_msg, err_type):
 @pytest.mark.parametrize("out_path, out_file, err_msg",
     [
         (
-            "emtpy",
+            "empty",
             None, 
-            "No CSV files found in directory"
+            "No CSV files found in directory",
         ),
         (
             "bad_csv",
             pd.DataFrame({"A": [1], "B": [2], "C": [3]}),
             "CSV",
         ),
+        (
+            "missing_phase_cols",
+            pd.DataFrame({"A": [1], "B": [2], "C": [3], "D": [4], "E": [5]}),
+            "Dataframe missing phase columns. Skipping.",
+        )
     ],
 )
 def test_make_phase_diagram_errors(tmp_path: Path,
@@ -241,19 +246,29 @@ out_path, out_file, err_msg):
     """
     save_dir = tmp_path / out_path
     save_dir.mkdir()
-    phase_cols=('Phase_Separation_1st', 'Phase_Separation_2nd')
+    phase_cols = ('Phase_Separation_1st', 'Phase_Separation_2nd')
 
-    if out_path == "bad_csv":
+    if out_path in ["bad_csv", "missing_phase_cols"]:
         bad_dir = save_dir / "demo.csv"
         out_file.to_csv(bad_dir, index=False)
-    
-    with pytest.raises(ValueError, match=err_msg):
-        pmf.make_phase_diagram_figures(
-            save_dir, 
-            tmp_path / "out", 
-            phase_cols
-        )
-
+        
+    if out_path in ["bad_csv", "empty"]:
+        with pytest.raises(ValueError, match=err_msg):
+            pmf.make_phase_diagram_figures(
+                save_dir, 
+                tmp_path / "out", 
+                phase_cols
+            )
+    elif out_path == "missing_phase_cols":
+        with pytest.warns(UserWarning) as warnings_list:
+            pmf.make_phase_diagram_figures(
+                save_dir, 
+                tmp_path / "out", 
+                phase_cols
+            )
+        wrn_msg = warnings_list[0]
+        assert err_msg in str(wrn_msg.message)    
+        assert wrn_msg.category is UserWarning     
 
 def _build_titration_dir(dir_: Path, df: pd.DataFrame) -> Path:
     """
@@ -271,6 +286,10 @@ def _build_binodal_dir(dir_: Path, df: pd.DataFrame) -> Path:
     dir_.mkdir()
     tit = df[["X", "Y"]].iloc[:5]
     tec = df[["X", "Y"]].iloc[5:10]
+    tit.rename(columns={"X": "Sodium citrate (wt%)",
+                        "Y": "PEO 8 kg/mol (wt%)"}, inplace=True) 
+    tec.rename(columns={"X": "Sodium citrate (wt%)",
+                        "Y": "PEO 8 kg/mol (wt%)"}, inplace=True) 
     tit.to_csv(dir_ / "Synthetic_Titrate.csv", index=False)
     tec.to_csv(dir_ / "Synthetic_TECAN_1st.csv", index=False)
     return dir_
@@ -286,8 +305,8 @@ def _build_phase_dir(dir_: Path, df: pd.DataFrame) -> Path:
             "Junk1": 0,
             "Junk2": 0,
             "Junk3": 0,
-            "X": df["X"],
-            "Y": df["Y"],
+            "Sodium citrate (wt%)": df["X"],
+            "PEO 8 kg/mol (wt%)": df["Y"],
             "Phase_Separation_1st": df["Phase"],
             "Phase_Separation_2nd": df["Phase"],
         }
@@ -299,7 +318,7 @@ def _build_phase_dir(dir_: Path, df: pd.DataFrame) -> Path:
 def _build_model_csv(path: Path, df: pd.DataFrame) -> Path:
     out = pd.DataFrame(
         {
-            "Sodium Citrate (wt%)": df["X"],
+            "Sodium citrate (wt%)": df["X"],
             "PEO 8 kg/mol (wt%)": df["Y"],
             "Phase_Separation_2nd": df["Phase"],
         }

@@ -1,6 +1,7 @@
+from . import figure_utils
 import os
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Any
+from typing import Optional, Any
 
 import numpy as np
 import pandas as pd
@@ -8,8 +9,13 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 import json
+import warnings
+import math
+from matplotlib import rcParams
 
-from . import figure_utils
+rcParams['font.sans-serif'] = ["Arial"]
+rcParams['font.family'] = "sans-serif"
+
 
 def load_parameters_from_json(path: Path) -> dict[str, float]:
     """
@@ -82,8 +88,20 @@ def titration_diagram(
     fig, ax = plt.subplots(figsize=(12, 12), dpi=300)
 
     scatter_cfg: list[dict[str, Any]] = [
-        {"val": 0, "color": "dodgerblue", "marker": "s", "label": "Single Phase"},
-        {"val": 1, "color": "#FFFFCC", "marker": "^", "label": "Two Phase"},
+        {
+            "val": 0,
+            "color": "dodgerblue",
+            "marker": "s",
+            "label": "Single Phase",
+            "ms": 20,
+        },
+        {
+            "val": 1,
+            "color": "#FFFFCC",
+            "marker": "^",
+            "label": "Two Phase",
+            "ms": 20,
+        },
     ]
 
     for cfg in scatter_cfg:
@@ -99,12 +117,15 @@ def titration_diagram(
             label=cfg["label"],
         )
 
-    ax.set_xlabel(x_col, fontsize=20, fontweight="bold")
-    ax.set_ylabel(y_col, fontsize=20, fontweight="bold")
+    # Mihee requests changing ``PEO`` to ``PEG`` in axis labels
+    # perform programmatically here vs. modifying all input files
+    y_col = y_col.replace("PEO", "PEG") if "PEO" in y_col else y_col
+    ax.set_xlabel(x_col, fontsize=46, fontweight="bold", labelpad=20)
+    ax.set_ylabel(y_col, fontsize=46, fontweight="bold", labelpad=20)
     figure_utils._set_axis_style(ax, xrange, yrange)
 
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.2), framealpha=0.8, fontsize=20)
-
+    ax.legend(loc="upper right", framealpha=0.8, fontsize=34)
+    
     dest_dir = os.path.dirname(output_path)
     if dest_dir and not os.path.exists(dest_dir):
         os.makedirs(dest_dir, exist_ok=True)
@@ -154,7 +175,7 @@ def plot_two_scatter(
 
     fig, ax = plt.subplots(figsize=(12, 12), dpi=300)
 
-    scatter_cfg:  list[Dict[str, Any]] = [
+    scatter_cfg:  list[dict[str, Any]] = [
         {"df": df1, "color": "purple", "label": "Turbidimetric Titration"},
         {"df": df2, "color": "yellow", "label": "Computational Pipeline"},
     ]
@@ -166,17 +187,20 @@ def plot_two_scatter(
             data[y_col],
             c=cfg["color"],
             marker="^",
-            s=120,
+            s=300,
             edgecolors="black",
             linewidths=1,
             label=cfg["label"],
         )
-
-    ax.set_xlabel(x_col, fontsize=24, fontweight="bold")
-    ax.set_ylabel(y_col, fontsize=24, fontweight="bold")
+    
+    # Mihee requests changing ``PEO`` to ``PEG`` in axis labels
+    # perform programmatically here vs. modifying all input files
+    y_col = y_col.replace("PEO", "PEG") if "PEO" in y_col else y_col
+    ax.set_xlabel(x_col, fontsize=46, fontweight="bold", labelpad=20)
+    ax.set_ylabel(y_col, fontsize=46, fontweight="bold", labelpad=20)
     figure_utils._set_axis_style(ax, xlim, ylim)
     
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.2), framealpha=0.8, fontsize=24)
+    ax.legend(loc="upper right", framealpha=0.8, fontsize=30)
 
     dest_dir = os.path.dirname(output_path)
     if dest_dir and not os.path.exists(dest_dir):
@@ -231,9 +255,9 @@ def binodal_model(
 
     model_vars = load_parameters_from_json(json_path)
 
-    A: float = model_vars["MODEL_A"]
-    B: float = model_vars["MODEL_B"]
-    C: float = model_vars["MODEL_C"]
+    model_a: float = model_vars["MODEL_A"]
+    model_b: float = model_vars["MODEL_B"]
+    model_c: float = model_vars["MODEL_C"]
 
     fig, ax = plt.subplots(figsize=(12, 12), dpi=300)
 
@@ -267,14 +291,14 @@ def binodal_model(
     # as described in Silverio, et. al., equation (1), [dx.doi.org/10.1021/je2012549]
     raw_x = np.linspace(xrange[0], xrange[1], 500, dtype=float)
     frac_x = raw_x / 100.0
-    model_y = A * np.exp(B * np.sqrt(frac_x) - C * frac_x**3) * 100.0
+    model_y = model_a * np.exp(model_b * np.sqrt(frac_x) - model_c * frac_x**3) * 100.0
 
     ax.plot(
         raw_x,
         model_y,
         color="black",
         linewidth=2.5,
-        label=f"Model fit: a={A:.3f}, b={B:.2f}, c={C:.0f}",
+        label=f"Model fit: a={model_a:.3f}, b={model_b:.2f}, c={model_c:.0f}",
     )
 
     handles = [
@@ -284,24 +308,28 @@ def binodal_model(
               label="Single-Phase (Experiment)"),
         Line2D([0], [0], marker="^", color="w",
                markerfacecolor="#FFFFCC", markeredgecolor="black",
-               markersize=10, label="Two-Phase (Experiment)"),
+               markersize=20, label="Two-Phase (Experiment)"),
         Line2D([0], [0], marker="s", color="w",
                markerfacecolor="dodgerblue", markeredgecolor="black",
-               markersize=10, label="Single-Phase (Experiment)"),
+               markersize=20, label="Single-Phase (Experiment)"),
         Line2D([0], [0], color="red", lw=3, label="Decision Boundary"),
         Line2D([0], [0], color="black", lw=2.5, label="Model fit"),
     ]
 
     ax.legend(
         handles=handles, 
-        bbox_to_anchor=(0.5, -0.1),
+        bbox_to_anchor=(0.5, -0.2),
         loc="upper center", 
         framealpha=0.8, 
-        fontsize=24
+        fontsize=24,
+        ncol=3,
     )
 
-    ax.set_xlabel(x_col, fontsize=24, fontweight="bold")
-    ax.set_ylabel(y_col, fontsize=24, fontweight="bold")
+    # Mihee requests changing ``PEO`` to ``PEG`` in axis labels
+    # perform programmatically here vs. modifying all input files
+    y_col = y_col.replace("PEO", "PEG") if "PEO" in y_col else y_col
+    ax.set_xlabel(x_col, fontsize=46, fontweight="bold", labelpad=20)
+    ax.set_ylabel(y_col, fontsize=46, fontweight="bold", labelpad=20)
     figure_utils._set_axis_style(ax, xrange, yrange)
 
     dest_dir = os.path.dirname(output_path)
@@ -381,10 +409,10 @@ def phase_diagram_exp(
               label="Single-Phase (Experiment)"),
         Line2D([0], [0], marker="^", color="w",
                markerfacecolor="#FFFFCC", markeredgecolor="black",
-               markersize=10, label="Two-Phase (Experiment)"),
+               markersize=20, label="Two-Phase (Experiment)"),
         Line2D([0], [0], marker="s", color="w",
                markerfacecolor="dodgerblue", markeredgecolor="black",
-               markersize=10, label="Single-Phase (Experiment)"),
+               markersize=20, label="Single-Phase (Experiment)"),
         Line2D([0], [0], color="red", lw=3, label="Decision Boundary"),
     ]
     ax.legend(
@@ -392,11 +420,15 @@ def phase_diagram_exp(
         bbox_to_anchor=(0.5, -0.2),
         loc="upper center", 
         framealpha=0.8, 
-        fontsize=24
+        fontsize=24,
+        ncol=3,
     )
 
-    ax.set_xlabel(x_col, fontsize=24, fontweight="bold")
-    ax.set_ylabel(y_col, fontsize=24, fontweight="bold")
+    # Mihee requests changing ``PEO`` to ``PEG`` in axis labels
+    # perform programmatically here vs. modifying all input files
+    y_col = y_col.replace("PEO", "PEG") if "PEO" in y_col else y_col
+    ax.set_xlabel(x_col, fontsize=46, fontweight="bold")
+    ax.set_ylabel(y_col, fontsize=46, fontweight="bold")
     figure_utils._set_axis_style(ax, xrange, yrange)
 
     dest_dir = os.path.dirname(output_path)
@@ -443,8 +475,10 @@ def make_titration_figures(
     for csv_path in sorted(csv_dir.glob("*.csv")):
         df = pd.read_csv(csv_path)
         x_title, y_title, phase_title = df.columns[:3]
-        x_rng = [0, int(df[x_title].max()) + 1]
-        y_rng = [0, int(df[y_title].max()) + 1]
+        x_max = int(df[x_title].max())
+        y_max = int(df[y_title].max())
+        x_rng = [0, x_max + math.ceil(0.1 * x_max)]
+        y_rng = [0, y_max + math.ceil(0.1 * y_max)]
 
         png_path = out_dir / f"{csv_path.stem}_Titration_Phase_Diagram.png"
 
@@ -489,7 +523,19 @@ def make_binodal_comparison_figures(
 
     titrate: dict[str, Path] = {}
     tecan: dict[str, Path] = {}
-
+    
+    # fixed axis ranges requested by Mihee
+    # based on reasonable assumptions of
+    # experimental conditions.
+    axis_ranges = {
+        "Dextran 500 kg/mol (wt%)": [0, 12],
+        "PEO 20 kg/mol (wt%)": [0, 4],
+        "Sodium citrate (wt%)": [0, 18], 
+        "PEO 8 kg/mol (wt%)": [0, 40],
+        "Dextran 10 kg/mol (wt%)": [0, 14],
+        "PEO 10 kg/mol (wt%)": [0, 14],
+    }
+     
     file_suffix = ["1st", "2nd"]
     for suff in file_suffix:
         for p in csv_dir.glob("*_Titrate.csv"):
@@ -501,24 +547,21 @@ def make_binodal_comparison_figures(
             csv_tec = tecan[ds_id]
 
             df_tit = pd.read_csv(csv_tit)
-            df_tec = pd.read_csv(csv_tec)
             x_col, y_col = df_tit.columns[:2]
-            x_rng, y_rng = figure_utils._axis_ranges(df_tit, df_tec, x_col, y_col, pad=2)
-
             png_path = out_dir / f"Figure_6_{ds_id}_Binodal_Comparison_{suff}.png"
 
             plot_two_scatter(
                 csv1_path=csv_tit,
                 csv2_path=csv_tec,
                 output_path=png_path,
-                xlim=x_rng,
-                ylim=y_rng,
+                xlim=axis_ranges[x_col],
+                ylim=axis_ranges[y_col],
             )
 
 def make_phase_diagram_figures(
     csv_dir: Path, 
     out_dir: Path,
-    phase_cols: Tuple[str, str]
+    phase_cols: tuple[str, str]
 ) -> None:
     """Iterates through CSV files to produce two diagrams per file.
 
@@ -537,7 +580,7 @@ def make_phase_diagram_figures(
         The path to the directory containing the input CSV files.
     out_dir : Path
         The path to the directory where the output PNG images will be saved.
-    phase_cols : Tuple[str, str]
+    phase_cols : tuple[str, str]
         The tuple of phase separation column names used for phase diagram
 
     Returns
@@ -565,6 +608,10 @@ def make_phase_diagram_figures(
 
         for tag, phase_col in zip(("1st", "2nd"), phase_cols):
             if phase_col not in df.columns:
+                warnings.warn(
+                    "Dataframe missing phase columns. Skipping.",
+                    UserWarning,
+                )
                 continue
 
             png_path = out_dir / f"{ds_id}_Phase_Diagram_{tag}.png"
@@ -580,13 +627,13 @@ def make_phase_diagram_figures(
 
 def plot_figures(
     titration_csv_dir: Path,
-    binodal_csv_dir:   Path,
+    binodal_csv_dir: Path,
     csv_phase_dir: Path,
     out_dir: Path,
     mat_model_csv: Path,
     mat_model_png: Path,
     json_path: Path,
-    phase_cols: Tuple[str, str],
+    phase_cols: tuple[str, str],
     xrange: list[int],
     yrange: list[int]
 ) -> None:
@@ -616,7 +663,7 @@ def plot_figures(
     json_path : pathlib.Path, default JSON_PATH
         JSON file containing the calibrated model parameters
         MODEL_A, MODEL_B, and MODEL_C.
-    phase_cols: Tuple[str, str]
+    phase_cols: tuple[str, str]
         Tuple of strings to represent the phase column names 
     xrange: list[int]
         X-axis range for the plot
@@ -638,7 +685,7 @@ def plot_figures(
     binodal_model(
         file_path=mat_model_csv,
         json_path=json_path,
-        x_col="Sodium Citrate (wt%)",
+        x_col="Sodium citrate (wt%)",
         y_col="PEO 8 kg/mol (wt%)",
         phase_col="Phase_Separation_2nd",
         xrange=xrange,

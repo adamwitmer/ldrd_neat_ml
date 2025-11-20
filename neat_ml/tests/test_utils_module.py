@@ -1,6 +1,6 @@
 from pathlib import Path
 from importlib import resources
-from typing import Callable, Generator, Any
+from typing import Callable, Generator, Any, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -30,20 +30,6 @@ def baseline_dir() -> Generator[Any, Any, Any]:
     with resources.as_file(ref) as path:
         yield path
 
-def test_axis_ranges():
-    df_a = pd.DataFrame({"x": [1, 3], "y": [2, 5]})
-    df_b = pd.DataFrame({"x": [0, 7], "y": [1, 4]})
-    xr, yr = figure_utils._axis_ranges(df_a, df_b, "x", "y", pad=1)
-
-    actual_xr = np.array(xr)
-    desired_xr = np.array([0, 8])
-    npt.assert_array_equal(actual_xr,desired_xr)
-
-    actual_yr = np.array(yr)
-    desired_yr = np.array([0, 6])
-    npt.assert_array_equal(actual_yr,desired_yr)
-
-
 def test_standardise_labels_mapping():
     raw = np.array([9, 9, 1])
     x_comp = np.array([[10, 10], [11, 11], [0.1, 0.1]])
@@ -55,13 +41,29 @@ def test_standardise_labels_mapping():
     desired_std = np.array([0, 0, 1])
     npt.assert_array_equal(actual_std, desired_std)
 
-
-def test_extract_boundary_from_contour():
-    z = np.array([[0, 1],
-                  [1, 0]])
+@pytest.mark.parametrize("z, exp_out",
+    [
+        (
+            np.array([[0, 1],
+                      [1, 0]]),
+            np.array([[1., 0.5],
+                      [0.5, 0.0]]),
+        ),
+        (
+            np.array([[0, 0],
+                      [0, 0]]),
+            None,
+        ),
+    ]
+)
+def test_extract_boundary_from_contour(z, exp_out):
     xs = ys = np.arange(2)
     boundary = figure_utils.extract_boundary_from_contour(z, xs, ys, level=0.5)
-    assert boundary is not None and boundary.shape[1] == 2
+    
+    if exp_out is None:
+        assert boundary is exp_out
+    else:
+        npt.assert_array_equal(boundary, exp_out)
 
 
 def test_gmmwrapper_predict_matches_gmm():
@@ -84,10 +86,28 @@ def test_set_axis_style_equal_aspect():
     plt.close(fig)
 
 @pytest.mark.parametrize(
-    "plotter, fname",
+    "plotter, fname, region_colors",
     [
-        (figure_utils.plot_gmm_decision_regions, "gmm_decision_regions.png"),
-        (figure_utils.plot_gmm_composition_phase, "gmm_composition_phase.png"),
+        (
+            figure_utils.plot_gmm_decision_regions,
+            "gmm_decision_regions.png",
+            ["aquamarine", "lightsteelblue"],
+        ),
+        (
+            figure_utils.plot_gmm_decision_regions,
+            "gmm_decision_regions.png",
+            None,
+        ),
+        (
+            figure_utils.plot_gmm_composition_phase,
+            "gmm_composition_phase.png",
+            ["#FFFFCC", "dodgerblue"],
+        ),
+        (
+            figure_utils.plot_gmm_composition_phase,
+            "gmm_composition_phase.png",
+            None,
+        ),
     ],
 )
 def test_plotters_visual_and_logic(
@@ -96,6 +116,7 @@ def test_plotters_visual_and_logic(
     baseline_dir: Path,
     plotter: Callable,
     fname: str,
+    region_colors: Optional[list[str]],
 ):
     fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
 
@@ -114,7 +135,7 @@ def test_plotters_visual_and_logic(
             resolution=200,
             decision_alpha=1,
             plot_regions=True,
-            region_colors=["aquamarine", "lightsteelblue"],
+            region_colors=region_colors,
         )
         assert labels.shape == (len(synthetic_df),)
         assert boundary is None or boundary.shape[1] == 2
@@ -127,7 +148,7 @@ def test_plotters_visual_and_logic(
             y_col="Y",
             phase_col="Phase",
             ax=ax,
-            point_cmap=["#FFFFCC", "dodgerblue"],
+            point_cmap=region_colors,
         )
         scat = [c for c in ax.collections if np.asarray(c.get_offsets()).size > 0]
         assert len(scat) == 2
