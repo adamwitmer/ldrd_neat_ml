@@ -79,32 +79,33 @@ def run_detection(
     
     # check if the input image filepaths data structure contains the appropriate
     # keys for performing detection
-    det_dir: Path = paths["det_dir"]
-    detection_cfg: dict[str, Any] = dict(dataset_config.get("detection", {}))
-    img_dir_str: Optional[str] = detection_cfg.get("img_dir", dataset_config.get("img_dir"))
+    det_dir = paths["det_dir"].expanduser().resolve()
+    detection_cfg = dict(dataset_config.get("detection", {}))
+    img_dir_str = detection_cfg.get("img_dir", dataset_config.get("img_dir"))
     if not img_dir_str:
         log.warning("No 'detection.img_dir' set for dataset '%s'. Skipping detection.",
                     dataset_config.get("id"))
         return None
     
     # check if the detection step has already been performed
-    img_dir: Path = Path(img_dir_str)
+    img_dir = Path(img_dir_str).expanduser().resolve()
     det_dir.mkdir(parents=True, exist_ok=True)
-    ds_id: str = str(dataset_config.get("id", "unknown"))
+    ds_id = str(dataset_config.get("id", "unknown"))
     if list(det_dir.glob(f"*{file_suffix}.pkl")):
         log.info("Detection already exists for %s. Skipping.", ds_id)
         return None
     
     # for the ``opencv`` method, perform image preprocessing
     if method.lower() == "opencv":
-        debug: bool = bool(detection_cfg.get("debug", False))
-        tiff_paths: Path = paths["proc_dir"]
-        tiff_paths.mkdir(parents=True, exist_ok=True)
-        log.info("Preprocessing (OpenCV) for %s -> %s", ds_id, tiff_paths)
-        cv_preprocess(img_dir, tiff_paths)
+        debug = bool(detection_cfg.get("debug", False))
+        proc_dir = paths["proc_dir"].expanduser().resolve()
+        proc_dir.mkdir(parents=True, exist_ok=True)
+        log.info("Preprocessing (OpenCV) for %s -> %s", ds_id, proc_dir)
+        cv_preprocess(img_dir, proc_dir)
     else:
-        tiff_paths = img_dir
+        proc_dir = img_dir
     
+    debug = detection_cfg.get("debug", False)
     # route the detection step to the appropriate method
     log.info(f"Detecting ({method}) for %s -> %s", ds_id, det_dir)
     # collect paths for preprocessed tiff image files, store in DataFrame
@@ -121,7 +122,7 @@ def run_detection(
     if method.lower() == "opencv":
         df_out = run_opencv(df_imgs, det_dir, debug=debug)
     else:
-        df_out = run_bubblesam(df_imgs, det_dir)
+        df_out = run_bubblesam(df_imgs, det_dir, debug=debug)
     return df_out
 
 def stage_detect(

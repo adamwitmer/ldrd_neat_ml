@@ -10,6 +10,8 @@ import pickle
 from tqdm import tqdm
 import joblib
 import logging
+from matplotlib.axes import Axes
+from numpy.random import Generator
 
 from skimage.measure import label, regionprops, find_contours
 from matplotlib.patches import Rectangle
@@ -31,7 +33,7 @@ logger = logging.getLogger(__name__)
 #
 # NOTE: these parameters were not determined via 
 # systematic hyperparameter optimization (issue #13)
-DEFAULT_MASK_SETTINGS: dict[str, Any] = {
+DEFAULT_MASK_SETTINGS = {
     "points_per_side": 32,
     "points_per_batch": 128,
     "pred_iou_thresh": 0.80,
@@ -44,34 +46,17 @@ DEFAULT_MASK_SETTINGS: dict[str, Any] = {
     "use_m2m": True,
 }
 
-DEFAULT_MODEL_CFG: dict[str, Any] = {
+DEFAULT_MODEL_CFG = {
     "model_config": "sam2_hiera_l.yaml",
     "checkpoint_path": "./neat_ml/sam2/checkpoints/sam2_hiera_large.pt",
-    "device": "cuda" if torch.cuda.is_available() else "cpu",
+    "device": ("cuda" if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available()
+        else "cpu"
+    ),
 }
 
-def load_image(image_path: str) -> np.ndarray:
-    """
-    Loads and converts an image from BGR to RGB.
-    
-    Parameters
-    ----------
-    image_path : str
-                 The path to the image file.
-    
-    Returns
-    -------
-    image : np.ndarray
-        The loaded and converted image.
-    """
-    image = cv2.imread(image_path)
-    if image is None:
-        raise FileNotFoundError(f"Image at path {image_path} not found.")
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    return image
 
-
-def save_masks(masks: list[dict[str, Any]], output_path: str) -> None:
+def save_masks(masks: list[dict[str, Any]], output_path: Path) -> None:
     """
     Saves the generated masks to the specified output path.
     
@@ -79,27 +64,43 @@ def save_masks(masks: list[dict[str, Any]], output_path: str) -> None:
     ----------
     masks : list[dict[str, Any]]
             The generated masks.
-    output_path : str
+    output_path : Path
                   The path to save the masks.
     """
     for i, mask in enumerate(masks):
         mask_image = (mask['segmentation'] * 255).astype(np.uint8)
-        cv2.imwrite(os.path.join(output_path, f'mask_{i}.png'), mask_image)
+        cv2.imwrite(
+            output_path / f'mask_{i}.png',
+            mask_image
+        )  # type: ignore[call-overload]
 
 
-def show_anns(anns: list[dict[str, Any]]) -> None:
+def show_anns(
+    anns: list[dict[str, Any]],
+    ax: Axes,
+    rng: Generator, 
+) -> None:
     """
     Shows the mask annotations over an image.
     
+    Note: this code is derived from the example jupyter notebook
+    stored at:
+
+    https://github.com/facebookresearch/sam2/blob/main/
+    notebooks/automatic_mask_generator_example.ipynb
+
     Parameters
     ----------
     anns : list[dict[str, Any]]
            The generated masks.
+    ax : Axes
+        matplotlib figure axes
+    rng : Generator
+        psuedorandom number generator
     """
     if len(anns) == 0:
         return
     sorted_anns = sorted(anns, key=(lambda x: x['area']), reverse=True)
-    ax = plt.gca()
     ax.set_autoscale_on(False)
 
     img = np.ones((
@@ -107,9 +108,10 @@ def show_anns(anns: list[dict[str, Any]]) -> None:
         sorted_anns[0]['segmentation'].shape[1],
         4))
     img[:,:,3] = 0
+
     for ann in sorted_anns:
         m = ann['segmentation']
-        color_mask = np.concatenate([np.random.random(3), [0.35]])
+        color_mask = np.concatenate([rng.random(3), [0.35]])
         img[m] = color_mask
     ax.imshow(img)
 
@@ -181,7 +183,7 @@ def analyze_and_filter_masks(
 def plot_filtered_masks(
     original_image: np.ndarray,
     masks_summary_df: pd.DataFrame,
-    output_path: str
+    output_path: Path
 ) -> None:
     """
     Plots the filtered masks (contours + bounding boxes) on the original image 
@@ -193,10 +195,10 @@ def plot_filtered_masks(
         Original image array.
     masks_summary_df : pd.DataFrame
         DataFrame containing the columns 'contour' and 'bbox' for each mask.
-    output_path : str
+    output_path : Path
         File path to save the resulting figure.
     """
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(1, 1)
     ax.imshow(original_image, cmap="gray")
 
     for idx, row in masks_summary_df.iterrows():
@@ -214,17 +216,18 @@ def plot_filtered_masks(
         )
         ax.add_patch(rect)
     ax.axis("off")
-    plt.savefig(output_path, bbox_inches='tight')
+    fig.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
     torch.cuda.empty_cache()
 
 
-def process_image(
-    image_path: str,
-    output_dir: str,
+def bubblesam_detection(
+    image_path: Path,
+    output_dir: Path,
     sam_model: SAMModel,
     mask_settings: dict[str, Any],
-    debug: bool = False
+    rng: Generator,
+    debug: bool = False,
 ) -> pd.DataFrame:
     """
     Processes a single image, generates a mask, filters and analyzes it, 
@@ -232,14 +235,16 @@ def process_image(
 
     Parameters
     ----------
-    image_path : str
+    image_path : Path
                  The path to the input image.
-    output_dir : str
+    output_dir : Path
                  The directory to save the masks.
     sam_model : SAMModel
                 The initialized SAM model.
     mask_settings : dict[str, Any]
                     Settings for mask generation.
+    rng : Generator
+          pseudorandom number generator
     debug : bool
             If True, diagnostic images (overlay and filtered contours) will be saved.
 
@@ -249,45 +254,47 @@ def process_image(
         A DataFrame containing properties of the masks (e.g., bubbles), 
         including contour, bounding box, axes lengths, etc.
     """
-    image_basename = Path(image_path).stem
-    os.makedirs(output_dir, exist_ok=True)
-    image = load_image(image_path)
-    masks = sam_model.generate_masks(output_dir, image, mask_settings)
-    masks_summary_df = sam_model.mask_summary(masks)
+    image_basename = image_path.stem
+    image = cv2.imread(image_path)  # type: ignore[call-overload]
+    if image is None:
+        raise FileNotFoundError(f"Image at path {image_path} not found.")
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    
+    masks = sam_model.generate_masks(image, mask_settings)
+    masks_summary_df = pd.DataFrame(masks)
     
     filtered_df = analyze_and_filter_masks(
         masks_summary_df,
         area_threshold=25,
         circularity_threshold=0.90
     )
-
-    with open(os.path.join(
-        output_dir, 
-        f'{image_basename}_masks_filtered.pkl'
-        ), 
-        'wb'
-    ) as f:
-        pickle.dump(filtered_df, f)
+   
+    # save filtered dataframe as parquet file
+    # convert ``contours`` column to list to save as parquet
+    save_filtered_df = filtered_df.copy()
+    save_filtered_df['contour'] = save_filtered_df['contour'].apply(
+        lambda x: x.tolist() if isinstance(x, np.ndarray) else x
+    )
+    save_filtered_df.to_parquet(
+        output_dir / f'{image_basename}_masks_filtered.parqet.gz'
+    )
 
     if debug:
-        plt.figure(figsize=(20,20))
-        plt.imshow(image)
-        show_anns(masks[1:])
-        plt.axis('off')
-        plt.savefig(os.path.join(
-            output_dir, 
-            f'{image_basename}_with_mask.png'
-            )
+        fig, ax = plt.subplots(1,1)
+        ax.imshow(image)
+        show_anns(masks[1:], ax, rng)
+        ax.axis('off')
+        fig.savefig(
+            output_dir / f'{image_basename}_with_mask.png',
+            dpi=300,
+            bbox_inches="tight",
         )
         plt.close()
 
         plot_filtered_masks(
             original_image=image,
             masks_summary_df=filtered_df,
-            output_path=os.path.join(
-                output_dir, 
-                f'{image_basename}_filtered_contours.png'
-            )
+            output_path=output_dir / f'{image_basename}_filtered_contours.png'
         )
     torch.cuda.empty_cache()
 
@@ -295,7 +302,7 @@ def process_image(
 
 def run_bubblesam(
     df_imgs: pd.DataFrame,
-    output_dir: Union[str, Path],
+    output_dir: Path,
     *,
     model_cfg: dict[str, Any] = DEFAULT_MODEL_CFG,
     mask_settings: dict[str, Any] = DEFAULT_MASK_SETTINGS,
@@ -309,8 +316,8 @@ def run_bubblesam(
     df_imgs : pd.DataFrame
         Dataframe containing absolute image filepaths.
         Requires 'image_filepath'.
-    output_dir : str | Path
-        Target directory for _masks_filtered.pkl + summary CSV.
+    output_dir : Path
+        Target directory for _masks_filtered parquet + summary CSV.
     model_cfg : dict[str, Any] | None
         Dict of settings for ``SAM2`` model. default is ``DEFAULT_MODEL_CFG``.
     mask_settings : dict[str, Any] | None
@@ -324,10 +331,14 @@ def run_bubblesam(
     summary : pd.DataFrame
         One row per image with detection statistics.
     """
-    out_dir = Path(output_dir).expanduser()
+    # initialize a pseudorandom number generator
+    rng = np.random.default_rng(seed=0)
+    
+    out_dir = output_dir.expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     sam_model = SAMModel(**model_cfg)
+    sam_model.setup_cuda()
 
     radii = np.zeros(len(df_imgs), dtype=np.float64)
     counts = np.zeros(len(df_imgs), dtype=np.int64)
@@ -335,7 +346,9 @@ def run_bubblesam(
     for i, img_fp in tqdm(
         enumerate(df_imgs["image_filepath"]), total=len(df_imgs), desc="[BubbleSAM]"
     ):
-        stats_df = process_image(str(img_fp), str(out_dir), sam_model, mask_settings, debug)
+        stats_df = bubblesam_detection(
+            img_fp, out_dir, sam_model, mask_settings, rng, debug,
+        )
         counts[i] = len(stats_df)
         radii[i] = np.sqrt(np.median(stats_df["area"]) / np.pi) if len(stats_df) else 0.0
 

@@ -256,34 +256,17 @@ def test_stage_detect_unknown_method_error(
         wf.stage_detect(ds, paths)
 
 
-def test_stage_bubblesam_uses_dataset_level_img_dir_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_stage_bubblesam_uses_dataset_level_img_dir_fallback(tmp_path: Path) -> None:
     """
-    run_detection: with ``bubblesam`` uses dataset.img_dir when detection.img_dir is not provided.
+    run_detection: with ``bubblesam`` uses dataset.img_dir when
+    detection.img_dir is not provided.
     """
     det_dir = tmp_path / "det"
     img_dir = tmp_path / "imgs_fallback"
     img_dir.mkdir()
 
-    used: dict[str, Path] = {}
-
-    def fake_collect(p: Path) -> Sequence[Path]:
-        used["img_dir"] = p
-        return [img_dir / "im.tiff"]
-
-    def fake_build(_: Sequence[Path]) -> dict[str, Any]:
-        return {"rows": 1}
-
-    def fake_run(_: dict[str, Any], out_dir: Path) -> None:
-        used["out_dir"] = out_dir
-
-    monkeypatch.setattr(wf, "collect_tiff_paths", fake_collect)
-    monkeypatch.setattr(wf, "build_df_from_img_paths", fake_build)
-    monkeypatch.setattr(wf, "run_bubblesam", fake_run)
-
-    ds = {"id": "BS5", "method": "bubblesam", "img_dir": str(img_dir)}
+    ds = {"id": "BS5", "method": "bubblesam", "img_dir": img_dir}
     paths = {"det_dir": det_dir}
 
     wf.run_detection(ds, paths)
-
-    assert used["img_dir"] == img_dir
-    assert used["out_dir"] == det_dir
+    assert (det_dir / "bubblesam_summary.csv").is_file()

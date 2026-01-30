@@ -4,9 +4,16 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 import torch
+import logging
+import os
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 from sam2.build_sam import build_sam2
 from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 class SAMModel:
     """
@@ -33,9 +40,9 @@ class SAMModel:
         device : str
                 Torch device ('cuda' | 'cpu' | 'cuda:0', …).
         """
-        self.model_config: str = model_config
-        self.checkpoint: str = checkpoint_path
-        self.device: str = device
+        self.model_config = model_config
+        self.checkpoint = checkpoint_path
+        self.device = device
 
     def setup_cuda(self) -> None:
         """
@@ -51,8 +58,14 @@ class SAMModel:
             if torch.cuda.get_device_properties(0).major >= 8:
                 torch.backends.cuda.matmul.allow_tf32 = True
                 torch.backends.cudnn.allow_tf32 = True
+        elif torch.backends.mps.is_available():
+            logger.warning(
+                "Support for MPS devices is preliminary. SAM 2 is trained with CUDA and might "
+                "give numerically different outputs and sometimes degraded performance on MPS. "
+                "See e.g. https://github.com/pytorch/pytorch/issues/84936 for a discussion."
+            )
 
-    def _build_model(self) -> "torch.nn.Module":
+    def _build_model(self) -> torch.nn.Module:
         """
         Description
         -----------
@@ -72,7 +85,6 @@ class SAMModel:
 
     def generate_masks(
         self,
-        output_dir: str | Path,
         image: np.ndarray,
         mask_settings: Optional[dict[str, Any]] = None,
     ) -> list[dict[str, Any]]:
@@ -83,8 +95,6 @@ class SAMModel:
 
         Parameters
         ----------
-        output_dir : str | Path
-                Folder to dump raw mask PNGs.
         image : np.ndarray
                 H x W x 3 RGB image.
         mask_settings : dict | None
@@ -95,40 +105,14 @@ class SAMModel:
         masks_sorted : list[dict[str, Any]]
                 Masks sorted by descending area.
         """
-        out_path: Path = Path(output_dir)
-        out_path.mkdir(parents=True, exist_ok=True)
 
         model = self._build_model()
         gen = SAM2AutomaticMaskGenerator(model=model, **(mask_settings or {}))
-        masks: list[dict[str, Any]] = gen.generate(image)
+        masks = gen.generate(image)
 
-        masks_sorted: list[dict[str, Any]] = sorted(
+        masks_sorted = sorted(
             masks, 
             key=lambda m: m["area"], 
             reverse=True
             )
-        return masks_sorted
-
-    def mask_summary(
-        self, 
-        masks: list[dict[str, Any]]
-        ) -> pd.DataFrame:
-        """
-        Description
-        -----------
-        Convert list-of-dict masks to a tidy pandas table.
-
-        Parameters
-        ----------
-        masks : list[dict[str, Any]]
-                Output of generate_masks().
-
-        Returns
-        -------
-        rows : pd.DataFrame
-                One row per mask, all original keys.
-        """
-        exclude: set[str] = set()
-        rows: list[dict[str, Any]] = [{k: v for k, v in m.items() if k not in exclude} for m in masks]
-        return pd.DataFrame(rows)
-    
+        return masks_sorted 

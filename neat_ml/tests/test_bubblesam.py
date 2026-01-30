@@ -3,7 +3,7 @@ from importlib import resources
 import re
 
 import numpy as np
-import numpy.testing as npt
+from numpy.testing import assert_allclose, assert_array_equal
 from numpy.typing import NDArray
 import pandas as pd
 import cv2
@@ -15,23 +15,22 @@ import matplotlib.pyplot as plt
 from matplotlib.testing.compare import compare_images
 
 from neat_ml.bubblesam.bubblesam import (
-    load_image,
     show_anns,
     save_masks,
     run_bubblesam,
-    process_image,
+    bubblesam_detection,
     analyze_and_filter_masks,
 )
 from neat_ml.bubblesam.SAM import SAMModel
 
-CHECKPOINT: Path = Path("./neat_ml/sam2/checkpoints/sam2_hiera_large.pt")
+CHECKPOINT = "./neat_ml/sam2/checkpoints/sam2_hiera_large.pt"
 
-def _skip_unless_available(model_chkpt: Path = CHECKPOINT) -> None:
+def _skip_unless_available(model_chkpt: str = CHECKPOINT) -> None:
     """
     Abort the whole module if we cannot load sam2 or the checkpoint.
     """
     pytest.importorskip("sam2", reason="sam2 package is required for SAM-2 tests")
-    if not CHECKPOINT.exists():
+    if not Path(model_chkpt).exists():
         pytest.skip(
             f"SAM-2 checkpoint not found at {model_chkpt}. "
             "Install it to run integration tests.",
@@ -40,15 +39,20 @@ def _skip_unless_available(model_chkpt: Path = CHECKPOINT) -> None:
 
 _skip_unless_available()
 
-def test_setup_cuda_does_not_crash_on_cpu(monkeypatch):
+@pytest.mark.skipif(
+    (torch.cuda.is_available() or torch.backends.mps.is_available()),
+    reason="This test is intended for systems without GPU support"
+)
+def test_setup_cuda_does_not_crash_on_cpu(
+    model_chkpt: str = CHECKPOINT,
+):
     """
     Ensures that calling setup_cuda() in an environment with no GPU
     completes without error.
     """
-    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
     model = SAMModel(
         model_config="sam2_hiera_l.yaml",
-        checkpoint_path=str(CHECKPOINT),
+        checkpoint_path=model_chkpt,
         device="cpu",
     )
     try:
@@ -60,7 +64,7 @@ def test_setup_cuda_does_not_crash_on_cpu(monkeypatch):
     not torch.cuda.is_available(),
     reason="This test requires a CUDA-enabled GPU"
 )
-def test_setup_cuda_on_real_gpu():
+def test_setup_cuda_on_real_gpu(model_chkpt = CHECKPOINT):
     """
     Verifies that setup_cuda() correctly configures torch backends on
     a live GPU. This test only runs if a CUDA device is found.
@@ -70,7 +74,7 @@ def test_setup_cuda_on_real_gpu():
 
     model = SAMModel(
         model_config="sam2_hiera_l.yaml",
-        checkpoint_path=str(CHECKPOINT),
+        checkpoint_path=model_chkpt,
         device="cuda",
     )
     model.setup_cuda()
@@ -79,44 +83,44 @@ def test_setup_cuda_on_real_gpu():
         assert torch.backends.cudnn.allow_tf32
 
 @pytest.fixture(scope="module")
-def real_sam_model(model_chkpt: Path = CHECKPOINT) -> SAMModel:
+def real_sam_model(model_chkpt: str = CHECKPOINT) -> SAMModel:
     """
     Actual SAM-2 network on CPU
     """
     return SAMModel(
         model_config="sam2_hiera_l.yaml",
-        checkpoint_path=str(model_chkpt),
+        checkpoint_path=model_chkpt,
         device="cpu",
     )
 
-def test_load_image_missing_file_raises(tmp_path: Path) -> None:
+def test_bubblesam_detection_missing_file_raises(
+    tmp_path: Path,
+    real_sam_model: SAMModel,
+) -> None:
     missing_path = tmp_path / "does_not_exist.png"
-    expected = re.escape(f"Image at path {missing_path} not found.")
-
+    expected = f"Image at path {missing_path} not found."
+    
+    rng = np.random.default_rng()
     with pytest.raises(FileNotFoundError, match=expected):
-        load_image(str(missing_path))
+        bubblesam_detection(missing_path, tmp_path, real_sam_model, {}, rng)
 
 
-@pytest.mark.parametrize("slice_idx, fn_call",
+@pytest.mark.parametrize("slice_idx, return_call",
     [
-        (slice(0, 0), "empty_anns"),
-        (slice(None), "imshow"),   
+        (slice(0, 0), 0),
+        (slice(None), 1),   
     ],
 )
-def test_show_anns(mocker, slice_idx, fn_call):
+def test_show_anns(slice_idx, return_call):
     """
     Smoke-test that show_anns draws without raising.
     """
-    mock_fig = mocker.MagicMock()
-    mock_ax = mocker.MagicMock()
-    mocker.patch("matplotlib.pyplot.gca", return_value=mock_ax)
+    rng = np.random.default_rng(0)
     seg = np.ones((20, 20), bool)
-    masks = [{"segmentation": seg, "area": int(seg.sum())}]
-    show_anns(masks[slice_idx])
-    if fn_call == "imshow":
-        mock_ax.imshow.assert_called_once()
-    if fn_call == "empty_anns":
-        mock_ax.imshow.assert_not_called()
+    fig, ax = plt.subplots(1, 1)
+    masks = [{"segmentation": seg, "area": seg.sum()}]
+    show_anns(masks[slice_idx], ax, rng)
+    assert len(ax.get_images()) == return_call
 
 
 def test_save_masks_creates_pngs(tmp_path: Path):
@@ -125,14 +129,14 @@ def test_save_masks_creates_pngs(tmp_path: Path):
     """
     seg = np.zeros((10, 10), bool)
     seg[2:8, 2:8] = True
-    masks = [{"segmentation": seg, "area": int(seg.sum())}]
-    save_masks(masks, str(tmp_path))
+    masks = [{"segmentation": seg, "area": seg.sum()}]
+    save_masks(masks, tmp_path)
     out_file = tmp_path / "mask_0.png"
 
-    actual = cv2.imread(str(out_file), cv2.IMREAD_GRAYSCALE)
+    actual = cv2.imread(out_file, cv2.IMREAD_GRAYSCALE)  # type: ignore[call-overload]
     assert actual is not None
     expected = seg.astype(np.uint8) * 255
-    npt.assert_array_equal(actual, expected)
+    assert_array_equal(actual, expected)
 
 @pytest.fixture(scope="module")
 def image_with_circles_fixture(tmp_path_factory) -> Path:
@@ -144,26 +148,28 @@ def image_with_circles_fixture(tmp_path_factory) -> Path:
     cv2.circle(img, center=(30, 30), radius=10, color=white, thickness=filled)
     cv2.circle(img, center=(70, 65), radius=15, color=white, thickness=filled)
     fpath = tmp_path_factory.mktemp("imgs") / "circles.png"
-    cv2.imwrite(str(fpath), cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+    cv2.imwrite(fpath, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
     return fpath
 
-def test_process_image_generates_pngs_cpu(
+def test_bubblesam_detection_generates_pngs_cpu(
     tmp_path: Path, image_with_circles_fixture: Path, real_sam_model: SAMModel
 ):
     """
-    process_image(debug=True) should run the real model, save two PNGs,
+    bubblesam_detection(debug=True) should run the real model, save two PNGs,
     and match (or record) deterministic baselines.
     """
-    np.random.seed(0)
+    rng = np.random.default_rng(0)
     img_fp = image_with_circles_fixture
-    stem = Path(img_fp).stem
+    stem = img_fp.stem
     out_dir = tmp_path / "run"
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    df = process_image(
-        image_path=str(img_fp),
-        output_dir=str(out_dir),
+    df = bubblesam_detection(
+        image_path=img_fp,
+        output_dir=out_dir,
         sam_model=real_sam_model,
         mask_settings={},
+        rng=rng,
         debug=True,
     )
     assert not df.empty
@@ -175,9 +181,14 @@ def test_process_image_generates_pngs_cpu(
         desired_overlay  = baseline_dir / actual_overlay.name
         desired_contours = baseline_dir / actual_contours.name
 
-        result1 = compare_images(str(desired_overlay),  str(actual_overlay),  tol=1e-4)
-        result2 = compare_images(str(desired_contours), str(actual_contours), tol=1e-4)
-        assert result1 is None and result2 is None
+        result1 = compare_images(
+            desired_overlay, actual_overlay,  tol=1e-4
+        )  # type: ignore[call-overload]
+        result2 = compare_images(
+            desired_contours, actual_contours, tol=1e-4
+        )  # type: ignore[call-overload]
+        assert result1 is None
+        assert result2 is None
 
 def test_sam_internal_api(real_sam_model: SAMModel):
     """
@@ -189,7 +200,7 @@ def test_sam_internal_api(real_sam_model: SAMModel):
 
     dummy_rgb = np.full((100, 100, 3), 200, np.uint8)
     masks = real_sam_model.generate_masks(
-        output_dir=".", image=dummy_rgb, mask_settings={}
+        image=dummy_rgb, mask_settings={}
     )
     assert len(masks) > 0
 
@@ -221,7 +232,7 @@ def test_run_bubblesam_cpu(tmp_path: Path, image_with_circles_fixture: Path):
         "checkpoint_path": "./neat_ml/sam2/checkpoints/sam2_hiera_large.pt",
         "device": "cpu",
     }
-    df_in = pd.DataFrame({"image_filepath": [str(image_with_circles_fixture)]})
+    df_in = pd.DataFrame({"image_filepath": [image_with_circles_fixture]})
     out_dir = tmp_path / "summary_run"
 
     summary = run_bubblesam(
@@ -235,8 +246,8 @@ def test_run_bubblesam_cpu(tmp_path: Path, image_with_circles_fixture: Path):
     expected_cols = {"image_filepath", "median_radii_SAM", "num_blobs_SAM"}
     assert expected_cols.issubset(set(summary.columns))
     assert summary["num_blobs_SAM"].item() == 2
-    assert summary["median_radii_SAM"].item() == 12.778613837669742
-    assert "circles.png" in summary["image_filepath"].item()
+    assert_allclose(summary["median_radii_SAM"].item(), 12.778613837669742)
+    assert summary["image_filepath"].item().name == "circles.png"
 
 
 @pytest.mark.parametrize("center_pixel",
