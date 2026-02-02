@@ -33,14 +33,22 @@ and optional dependencies by calling:
 python -m pip install -v ".[dev]" 
 ```
 
-## Writing a `.yaml` input file for OpenCV detection
+
+### Running the test-suite
+
+After installation, the test-suite can be run using `pytest`. The test-suite will skip
+running tests that use the SAM2 model because they are slow. If you want to run these tests
+you can use the command `pytest -m ""` to override the skip tests.
+
+## Writing a `.yaml` input file for OpenCV or SAM2 detection
 
 The workflow takes as input a `.yaml` configuration file with information
 on where to find the input image data for blob detection; save the
 output images.
 
-The `.yaml` file should follow the format below (an example
-can be found at `neat_ml/data/opencv_detection_test.yaml`)
+The `.yaml` file should follow the format below (examples
+can be found at `neat_ml/data/opencv_detection_test.yaml`
+and `neat_ml/data/bubblesam_detection_test.yaml`)
 Input paths can be provided as either absolute or relative
 file paths.
 
@@ -50,7 +58,7 @@ roots:
 
 datasets:
   - id: name_of_save_folder
-    method: Currently only supports ``OpenCV`` (or ``opencv``) as input
+    method: Currently only supports ``OpenCV`` or ``BubbleSAM`` as input
     class: subfolder_for_image_class
     time_label: subfolder_for_timestamp
 
@@ -73,7 +81,7 @@ are outlined in `bubbleSAM()` method in `neat_ml/bubblesam.py`. These parameters
 the performance of the model as well as the computational cost. 
 In order to run the script faster (or with less memory), modify the `points_per_side` to 16.
 
-## Running the OpenCV or BubbleSAM workflow
+## Running the OpenCV or SAM2 workflow
 
 To run the workflow with a given `.yaml` file: 
 

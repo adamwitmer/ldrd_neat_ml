@@ -1,10 +1,8 @@
 from pathlib import Path
 from importlib import resources
-import re
 
 import numpy as np
 from numpy.testing import assert_allclose, assert_array_equal
-from numpy.typing import NDArray
 import pandas as pd
 import cv2
 import pytest
@@ -138,7 +136,7 @@ def test_save_masks_creates_pngs(tmp_path: Path):
     expected = seg.astype(np.uint8) * 255
     assert_array_equal(actual, expected)
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def image_with_circles_fixture(tmp_path_factory) -> Path:
     """
     Return a path to a 100x100 black RGB image with two white circles.

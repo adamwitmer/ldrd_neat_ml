@@ -6,9 +6,6 @@ import warnings
 
 from neat_ml.workflow.lib_workflow import (get_path_structure, 
                                            stage_detect)
-from neat_ml.opencv.preprocessing import process_directory as cv_preprocess
-from neat_ml.opencv.detection import run_opencv
-from neat_ml.bubblesam.bubblesam import run_bubblesam
 
 log = logging.getLogger(__name__)
 
@@ -22,11 +19,6 @@ def main(config_path: str, steps_str: str) -> None:
         Path to config YAML.
     steps_str : str
         Comma separated list of steps. (Currently, only detect)
-
-    Returns
-    -------
-    None
-        Executes chosen stages in order.
     """
     steps = [s.strip() for s in steps_str.split(",") if s.strip()]
 

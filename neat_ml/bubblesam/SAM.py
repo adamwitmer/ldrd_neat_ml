@@ -1,8 +1,6 @@
-from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
-import pandas as pd
 import torch
 import logging
 import os
@@ -49,6 +47,12 @@ class SAMModel:
         Description
         -----------
         Enable bfloat16 and TF32 on Ampere GPUs for speed.
+        
+        Note: this code is derived from the example jupyter notebook
+        stored at:
+
+        https://github.com/facebookresearch/sam2/blob/main/
+        notebooks/automatic_mask_generator_example.ipynb
         """
         if torch.cuda.is_available():
             torch.autocast(
