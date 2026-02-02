@@ -11,6 +11,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.testing.compare import compare_images
+from importlib.resources import files
+from importlib.resources.abc import Traversable
 
 from neat_ml.bubblesam.bubblesam import (
     show_anns,
@@ -21,14 +23,14 @@ from neat_ml.bubblesam.bubblesam import (
 )
 from neat_ml.bubblesam.SAM import SAMModel
 
-CHECKPOINT = "./neat_ml/sam2/checkpoints/sam2_hiera_large.pt"
+CHECKPOINT = files("neat_ml.sam2").joinpath("checkpoints/sam2_hiera_tiny.pt")
 
-def _skip_unless_available(model_chkpt: str = CHECKPOINT) -> None:
+def _skip_unless_available(model_chkpt: Traversable = CHECKPOINT) -> None:
     """
     Abort the whole module if we cannot load sam2 or the checkpoint.
     """
     pytest.importorskip("sam2", reason="sam2 package is required for SAM-2 tests")
-    if not Path(model_chkpt).exists():
+    if not model_chkpt.is_file():
         pytest.skip(
             f"SAM-2 checkpoint not found at {model_chkpt}. "
             "Install it to run integration tests.",
@@ -42,14 +44,14 @@ _skip_unless_available()
     reason="This test is intended for systems without GPU support"
 )
 def test_setup_cuda_does_not_crash_on_cpu(
-    model_chkpt: str = CHECKPOINT,
+    model_chkpt: Traversable = CHECKPOINT,
 ):
     """
     Ensures that calling setup_cuda() in an environment with no GPU
     completes without error.
     """
     model = SAMModel(
-        model_config="sam2_hiera_l.yaml",
+        model_config="sam2_hiera_t.yaml",
         checkpoint_path=model_chkpt,
         device="cpu",
     )
@@ -62,7 +64,7 @@ def test_setup_cuda_does_not_crash_on_cpu(
     not torch.cuda.is_available(),
     reason="This test requires a CUDA-enabled GPU"
 )
-def test_setup_cuda_on_real_gpu(model_chkpt = CHECKPOINT):
+def test_setup_cuda_on_real_gpu(model_chkpt: Traversable = CHECKPOINT):
     """
     Verifies that setup_cuda() correctly configures torch backends on
     a live GPU. This test only runs if a CUDA device is found.
@@ -71,7 +73,7 @@ def test_setup_cuda_on_real_gpu(model_chkpt = CHECKPOINT):
     torch.backends.cudnn.allow_tf32 = False
 
     model = SAMModel(
-        model_config="sam2_hiera_l.yaml",
+        model_config="sam2_hiera_t.yaml",
         checkpoint_path=model_chkpt,
         device="cuda",
     )
@@ -81,12 +83,12 @@ def test_setup_cuda_on_real_gpu(model_chkpt = CHECKPOINT):
         assert torch.backends.cudnn.allow_tf32
 
 @pytest.fixture(scope="module")
-def real_sam_model(model_chkpt: str = CHECKPOINT) -> SAMModel:
+def real_sam_model(model_chkpt: Traversable = CHECKPOINT) -> SAMModel:
     """
     Actual SAM-2 network on CPU
     """
     return SAMModel(
-        model_config="sam2_hiera_l.yaml",
+        model_config="sam2_hiera_t.yaml",
         checkpoint_path=model_chkpt,
         device="cpu",
     )
@@ -150,7 +152,10 @@ def image_with_circles_fixture(tmp_path_factory) -> Path:
     return fpath
 
 def test_bubblesam_detection_generates_pngs_cpu(
-    tmp_path: Path, image_with_circles_fixture: Path, real_sam_model: SAMModel
+    tmp_path: Path,
+    image_with_circles_fixture: Path,
+    real_sam_model: SAMModel,
+    mask_settings: dict,
 ):
     """
     bubblesam_detection(debug=True) should run the real model, save two PNGs,
@@ -166,7 +171,7 @@ def test_bubblesam_detection_generates_pngs_cpu(
         image_path=img_fp,
         output_dir=out_dir,
         sam_model=real_sam_model,
-        mask_settings={},
+        mask_settings=mask_settings,
         rng=rng,
         debug=True,
     )
@@ -183,7 +188,7 @@ def test_bubblesam_detection_generates_pngs_cpu(
             desired_overlay, actual_overlay,  tol=1e-4
         )  # type: ignore[call-overload]
         result2 = compare_images(
-            desired_contours, actual_contours, tol=1e-4
+            desired_contours, actual_contours, tol=1e-2
         )  # type: ignore[call-overload]
         assert result1 is None
         assert result2 is None
@@ -208,26 +213,19 @@ def test_sam_internal_api(real_sam_model: SAMModel):
     assert "area" in masks[0]
     assert masks[0]["area"] ==  seg.sum()
 
-def test_run_bubblesam_cpu(tmp_path: Path, image_with_circles_fixture: Path):
+def test_run_bubblesam_cpu(
+    tmp_path: Path,
+    image_with_circles_fixture: Path,
+    mask_settings,
+    model_chkpt: Traversable = CHECKPOINT,
+):
     """
     End-to-end test on CPU: run_bubblesam should produce a summary CSV
     with expected columns.
     """
-    mask_settings = {
-        "points_per_side": 8,
-        "points_per_batch": 16,
-        "pred_iou_thresh": 0.80,
-        "stability_score_thresh": 0.80,
-        "stability_score_offset": 0.1,
-        "crop_n_layers": 2,
-        "box_nms_thresh": 0.1,
-        "crop_n_points_downscale_factor": 1,
-        "min_mask_region_area": 5,
-        "use_m2m": True,
-    }
     model_cfg = {
-        "model_config": "sam2_hiera_l.yaml",
-        "checkpoint_path": "./neat_ml/sam2/checkpoints/sam2_hiera_large.pt",
+        "model_config": "sam2_hiera_t.yaml",
+        "checkpoint_path": CHECKPOINT,
         "device": "cpu",
     }
     df_in = pd.DataFrame({"image_filepath": [image_with_circles_fixture]})

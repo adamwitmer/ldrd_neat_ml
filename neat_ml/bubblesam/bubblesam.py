@@ -10,6 +10,7 @@ import joblib
 import logging
 from matplotlib.axes import Axes
 from numpy.random import Generator
+from importlib.resources import files
 
 from skimage.measure import label, regionprops, find_contours
 from matplotlib.patches import Rectangle
@@ -18,7 +19,6 @@ from .SAM import SAMModel
 
 memory = joblib.Memory("joblib_cache", verbose=0)
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # these settings are used to parametrize 
@@ -44,9 +44,11 @@ DEFAULT_MASK_SETTINGS = {
     "use_m2m": True,
 }
 
+checkpoint_path = files("neat_ml.sam2").joinpath("checkpoints/sam2_hiera_large.pt")
+
 DEFAULT_MODEL_CFG = {
     "model_config": "sam2_hiera_l.yaml",
-    "checkpoint_path": "./neat_ml/sam2/checkpoints/sam2_hiera_large.pt",
+    "checkpoint_path": checkpoint_path,
     "device": ("cuda" if torch.cuda.is_available()
         else "mps" if torch.backends.mps.is_available()
         else "cpu"
@@ -216,7 +218,10 @@ def plot_filtered_masks(
     ax.axis("off")
     fig.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    elif torch.backends.mps.is_available():
+        torch.mps.empty_cache()
 
 
 def bubblesam_detection(
@@ -274,7 +279,7 @@ def bubblesam_detection(
         lambda x: x.tolist() if isinstance(x, np.ndarray) else x
     )
     save_filtered_df.to_parquet(
-        output_dir / f'{image_basename}_masks_filtered.parqet.gz'
+        output_dir / f'{image_basename}_masks_filtered.parquet.gzip'
     )
 
     if debug:
@@ -294,7 +299,10 @@ def bubblesam_detection(
             masks_summary_df=filtered_df,
             output_path=output_dir / f'{image_basename}_filtered_contours.png'
         )
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    elif torch.backends.mps.is_available():
+        torch.mps.empty_cache()
 
     return filtered_df
 

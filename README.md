@@ -17,8 +17,8 @@ pip install -e ".[notebooks]"
 # download model checkpoints
 cd checkpoints
 # modify the provided bash script to download the appropriate checkpoints
-git apply ../../checkpoint.diff
-sh download_chkpts.sh
+git apply ../../download_checkpoints.diff
+sh download_ckpts.sh
 ```    
 
 NOTE:
@@ -36,9 +36,11 @@ python -m pip install -v ".[dev]"
 
 ### Running the test-suite
 
-After installation, the test-suite can be run using `pytest`. The test-suite will skip
-running tests that use the SAM2 model because they are slow. If you want to run these tests
-you can use the command `pytest -m ""` to override the skip tests.
+After installation, the test-suite can be run using:
+
+```
+pyton -m pytest
+```
 
 ## Writing a `.yaml` input file for OpenCV or SAM2 detection
 

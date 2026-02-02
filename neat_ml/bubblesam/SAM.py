@@ -5,11 +5,11 @@ import torch
 import logging
 import os
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+from importlib.resources.abc import Traversable
 
 from sam2.build_sam import build_sam2
 from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -21,7 +21,7 @@ class SAMModel:
     def __init__(
         self, 
         model_config: str, 
-        checkpoint_path: str, 
+        checkpoint_path: Traversable, 
         device: str
         ) -> None:
         """
@@ -33,7 +33,7 @@ class SAMModel:
         ----------
         model_config : str
                 YAML cfg describing network architecture.
-        checkpoint_path : str
+        checkpoint_path : Traversable
                 Path to *.pt checkpoint with learned weights.
         device : str
                 Torch device ('cuda' | 'cpu' | 'cuda:0', …).
@@ -41,6 +41,7 @@ class SAMModel:
         self.model_config = model_config
         self.checkpoint = checkpoint_path
         self.device = device
+        self.model = self._build_model()
 
     def setup_cuda(self) -> None:
         """
@@ -80,12 +81,13 @@ class SAMModel:
         torch.nn.Module
                 SAM-2 network on requested device.
         """
-        return build_sam2(
+        self._model = build_sam2(
             self.model_config,
             self.checkpoint,
             device=self.device,
             apply_postprocessing=False,
         )
+        return self._model
 
     def generate_masks(
         self,
@@ -110,8 +112,7 @@ class SAMModel:
                 Masks sorted by descending area.
         """
 
-        model = self._build_model()
-        gen = SAM2AutomaticMaskGenerator(model=model, **(mask_settings or {}))
+        gen = SAM2AutomaticMaskGenerator(model=self._model, **(mask_settings or {}))
         masks = gen.generate(image)
 
         masks_sorted = sorted(

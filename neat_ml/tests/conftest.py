@@ -5,6 +5,7 @@ from importlib import resources
 from typing import Generator, Any
 import pooch  # type: ignore[import-untyped]
 from matplotlib import rcParams
+import neat_ml
 
 # try setting plot font to ``Arial``, if installed, 
 # otherwise default to standard matplotlib font
@@ -63,3 +64,31 @@ def reference_images():
             detection_raw,
             detection_processed,
             images_raw)
+         
+
+@pytest.fixture(scope="session")
+def mask_settings():
+    return {
+        "points_per_side": 4,
+        "points_per_batch": 4,
+        "pred_iou_thresh": 0.80,
+        "stability_score_thresh": 0.80,
+        "stability_score_offset": 0.1,
+        "crop_n_layers": 1,
+        "box_nms_thresh": 0.1,
+        "crop_n_points_downscale_factor": 1,
+        "min_mask_region_area": 5,
+        "use_m2m": True,
+    }
+
+
+@pytest.fixture(scope="session")
+def mock_tiny_weights(session_mocker):
+    tiny_weights = resources.files(neat_ml) / "sam2/checkpoints/sam2_hiera_tiny.pt" 
+    session_mocker.patch.dict("neat_ml.bubblesam.bubblesam.DEFAULT_MODEL_CFG",
+        {
+            "model_config": "sam2_hiera_t.yaml",
+            "checkpoint_path": tiny_weights,
+        }
+    )
+    return tiny_weights
