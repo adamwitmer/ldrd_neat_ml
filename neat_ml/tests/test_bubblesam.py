@@ -134,7 +134,6 @@ def test_save_masks_creates_pngs(tmp_path: Path):
     out_file = tmp_path / "mask_0.png"
 
     actual = cv2.imread(out_file, cv2.IMREAD_GRAYSCALE)  # type: ignore[call-overload]
-    assert actual is not None
     expected = seg.astype(np.uint8) * 255
     assert_array_equal(actual, expected)
 

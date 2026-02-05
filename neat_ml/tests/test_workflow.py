@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 import os
 import shutil
+from numpy.testing import assert_allclose
 
 import neat_ml.workflow.lib_workflow as wf
 
@@ -124,17 +125,19 @@ def test_run_detection_skips_if_output_already_exists(
     assert "Detection already exists" in caplog.text
 
 
-@pytest.mark.parametrize("ds, paths, exp_columns",
+@pytest.mark.parametrize("ds, paths, exp_columns, exp_1, exp_2",
     [
         (    
             {"id": "BS4", "method": "bubblesam", "detection": {}},
             {"det_dir": "det_dir"},
             {"image_filepath", "num_blobs_SAM", "median_radii_SAM"},
+            11.71288013023329, 11,
         ),
         (
             {"id": "DS6", "method": "OpenCV", "detection": {"debug": True}},
             {"proc_dir": "proc_dir", "det_dir": "det_dir"},
             {"image_filepath", "num_blobs_opencv", "median_radii_opencv"},
+            1735.0, 3.623063564300537,
         ),
     ]
 )
@@ -147,6 +150,8 @@ def test_stage_detect_pipeline_runs(
     ds: dict,
     paths: dict,
     exp_columns: set,
+    exp_1,
+    exp_2,
 ) -> None:
     """
     test that ``stage_detect`` runs successfully
@@ -222,7 +227,8 @@ def test_stage_detect_pipeline_runs(
     assert df_out is not None
     assert df_out.shape == (2, 3)
     assert exp_columns.issubset(df_out.columns)
-
+    assert_allclose(df_out.iloc[:, 1], exp_1)
+    assert_allclose(df_out.iloc[:, 2], exp_2)
 
 
 def test_stage_detect_unknown_method_error(

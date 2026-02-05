@@ -28,6 +28,8 @@ dependencies = [
     'pyyaml',
     'pooch',
     'pyarrow',
+    'torch',
+    'torchvision'
 ]
 [project.optional-dependencies]
 dev = ['mypy',

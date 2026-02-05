@@ -23,8 +23,9 @@ sh download_ckpts.sh
 
 NOTE:
     * refer to ``neat_ml/sam2/INSTALL.sh`` for troubleshooting 
-    * the appropriate `CUDA`, `torch` and `torchvision` versions must be installed for the
-      specific GPU on the users system.   
+    * GPU Users: the appropriate `CUDA`, `torch` and `torchvision` versions must be installed for the
+      specific GPU on the users system. For download instructions and information visit:
+      `https://pytorch.org/get-started/locally/`
 
 Install the project, core dependencies,
 and optional dependencies by calling:

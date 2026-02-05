@@ -324,9 +324,9 @@ def run_bubblesam(
         Requires 'image_filepath'.
     output_dir : Path
         Target directory for _masks_filtered parquet + summary CSV.
-    model_cfg : dict[str, Any] | None
+    model_cfg : dict[str, Any]
         Dict of settings for ``SAM2`` model. default is ``DEFAULT_MODEL_CFG``.
-    mask_settings : dict[str, Any] | None
+    mask_settings : dict[str, Any]
         Dict of settings for ``SAM2AutomaticMaskGenerator``.
         default is ``DEFAULT_MASK_SETTINGS``
     debug : bool
