@@ -8,15 +8,28 @@ from matplotlib import rcParams
 from pathlib import Path
 import cv2
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 import joblib
+import os
+from threadpoolctl import threadpool_limits  # type: ignore[import-untyped]
 
 # try setting plot font to ``Arial``, if installed, 
 # otherwise default to standard matplotlib font
 rcParams['font.sans-serif'] = ["Arial"]
 rcParams['font.family'] = "sans-serif"
+
+
+@pytest.fixture(autouse=True, scope="session")
+def set_pytest_threads():
+    # skip if number of omp threads is set explicitly
+    # in environment
+    if not os.getenv('OMP_NUM_THREADS'):
+        # restrict the number of threads used
+        # in native libraries for all tests
+        with threadpool_limits(1):
+            yield
 
 
 @pytest.fixture(scope="session")
@@ -239,7 +252,7 @@ def trained_model_bundle(tmp_path_factory):
         [
             ("impute", SimpleImputer(strategy="median")),
             ("scale", StandardScaler()),
-            ("clf", LogisticRegression(random_state=42)),
+            ("clf", RandomForestClassifier(random_state=42)),
         ]
     )
     rng = np.random.default_rng(7)

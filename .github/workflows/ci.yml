@@ -2,7 +2,7 @@ name: Base CI
 
 on:
   push:
-    branches: [ main, nidhin_data_analysis_backup ]
+    branches: [ main ]
   pull_request:
     branches: [ main, nidhin_data_analysis_backup ]
 
@@ -37,11 +37,6 @@ jobs:
       run: |
         brew update
         brew install libomp
-    - name: Set Thread Limit for macOS
-      if: runner.os == 'macOS'
-      run: |
-        echo "Limiting OpenMP to 1 thread for macOS performance"
-        echo "OMP_NUM_THREADS=1" >> $GITHUB_ENV
     - name: test
       run: |
         cd /tmp && python -m pytest --pyargs neat_ml --cov=neat_ml --cov-report=term-missing

@@ -7,6 +7,7 @@ import torch
 import pandas as pd
 from numpy.testing import assert_allclose
 import numpy as np
+from matplotlib.testing.compare import compare_images
 
 import neat_ml.workflow.lib_workflow as wf
 
@@ -780,22 +781,36 @@ def test_stage_explain_aligns_features_and_calls_compare_methods(
     )
 
 
+@pytest.mark.parametrize("only_inference, exp_img",
+    [
+        (True, "infer_only_phase_diagram_exp.png"),
+        (False, "train_infer_phase_diagram_exp.png"),
+    ]
+)
 def test_stage_run_inference_calls_inference_and_makes_pred_dir(
     tmp_path: Path,
+    baseline_dir: Path,
     sample_inference_data,
     trained_model_bundle,
+    only_inference,
+    exp_img,
 ):
     # add composition columns to sample inference data
     sample_data = pd.read_csv(sample_inference_data)
     rng = np.random.default_rng(42)
-    rng = np.random.default_rng()
     sample_data['Dex'] = rng.uniform(low=1, high=10, size=len(sample_data))
     sample_data['PEG'] = rng.uniform(low=1, high=10, size=len(sample_data))
-    sample_data.to_csv(sample_inference_data, index=False)
+    if only_inference:
+        sample_data = sample_data.drop(columns="ground_truth")
+        target = None
+    else:
+        target = "ground_truth"
+    tmp_save_path = tmp_path / sample_inference_data.name
+    sample_data.to_csv(tmp_save_path, index=False)
     out_dir = tmp_path / "infer"
     ds = {"id": "INFER1", "composition_cols": ["Dex", "PEG"]}
     paths = {
-        "agg_csv": sample_inference_data,
+        "agg_csv": tmp_save_path,
         "pred_csv": out_dir / "pred.csv",
         "phase_dir": out_dir / "phase_plots",
         "roc_png": out_dir / "roc.png",
@@ -806,11 +821,15 @@ def test_stage_run_inference_calls_inference_and_makes_pred_dir(
         paths,
         trained_model_bundle,
         steps=["infer", "plot"],
-        target="ground_truth",
-
+        target=target,
     )
     assert set(os.listdir(out_dir)).issubset(["phase_plots", "roc.png", "pred.csv"])
-    assert set(os.listdir(out_dir / "phase_plots")).issubset(["phase_diagram.png"])
+    result = compare_images(
+        out_dir / "phase_plots/phase_diagram.png",
+        baseline_dir / exp_img,
+        tol=1e-4,
+    )  # type: ignore[call-overload]
+    assert result is None
 
 
 def test_stage_run_inference_and_plot_skips_plot_when_wrong_num_composition_cols(
